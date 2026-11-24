@@ -1,0 +1,513 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>통합 대시보드</title>
+<style>
+  :root {
+    --bg: #f6f7f9; --card: #fff; --fg: #171717; --muted: #6b7280; --border: #e5e7eb; --track: #eef0f3;
+    --orange: #ea580c; --orange-fg: #c2410c; --green: #16a34a; --link: #2563eb; --agent: #2563eb; --side: #eef1f5;
+    color-scheme: light;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #0f1115; --card: #181b21; --fg: #e5e7eb; --muted: #9ca3af; --border: #2a2f38; --track: #262a31;
+      --orange-fg: #fb923c; --link: #93c5fd; --agent: #60a5fa; --side: #13161b;
+      color-scheme: dark;
+    }
+  }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; }
+  body { margin: 0; background: var(--bg); color: var(--fg); font: 13px/1.45 -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo", sans-serif; }
+  .app { display: grid; grid-template-columns: 260px minmax(0, 1fr); height: 100vh; }
+  aside { background: var(--side); border-right: 1px solid var(--border); display: flex; flex-direction: column; min-height: 0; }
+  .brand { display: flex; align-items: center; gap: 8px; padding: 14px 14px 10px; }
+  .brand b { font-size: 15px; }
+  .live { margin-left: auto; width: 8px; height: 8px; border-radius: 50%; background: #9ca3af; }
+  .live.on { background: var(--green); box-shadow: 0 0 0 3px rgba(22, 163, 74, .18); }
+  nav { overflow-y: auto; overflow-x: hidden; padding: 4px 8px 12px; display: grid; gap: 4px; align-content: start; }
+  .tab { display: block; width: 100%; min-width: 0; overflow: hidden; text-align: left; border: 1px solid transparent; background: none; color: inherit; font: inherit; border-radius: 10px; padding: 8px 10px; cursor: pointer; }
+  .tab:hover { background: var(--card); }
+  .tab.on { background: var(--card); border-color: var(--border); box-shadow: 0 1px 2px rgba(0, 0, 0, .06); }
+  .tab .row { display: flex; align-items: baseline; gap: 6px; }
+  .tab .row b { font-size: 13px; }
+  .kbd { margin-left: auto; font: 10.5px ui-monospace, Menlo, monospace; color: var(--muted); border: 1px solid var(--border); border-bottom-width: 2px; border-radius: 4px; padding: 0 4px; background: var(--card); }
+  .tab .t { color: var(--muted); font-size: 11.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .bar { height: 5px; border-radius: 99px; background: var(--track); overflow: hidden; margin: 5px 0 3px; }
+  .bar i { display: block; height: 100%; background: var(--green); transition: width .4s; }
+  .stats { font-size: 11px; color: var(--muted); font-variant-numeric: tabular-nums; }
+  .stats .rv { color: var(--orange-fg); font-weight: 700; }
+  .stats .busy { color: var(--agent); font-weight: 700; }
+  .down { font-size: 10.5px; font-weight: 700; color: #fff; background: #9ca3af; border-radius: 99px; padding: 0 6px; }
+  .hint { padding: 10px 14px; border-top: 1px solid var(--border); font-size: 11px; color: var(--muted); }
+  main { position: relative; min-width: 0; min-height: 0; }
+  iframe { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; background: var(--bg); }
+  .overview { position: absolute; inset: 0; overflow: auto; padding: 18px; }
+  .overview h1 { font-size: 18px; margin: 0 0 12px; }
+  .grid { display: grid; gap: 14px; grid-template-columns: repeat(auto-fill, minmax(360px, 1fr)); align-items: start; }
+  .card { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 14px 16px; }
+  .card .hd { display: flex; align-items: baseline; gap: 8px; }
+  .card .hd b { font-size: 15px; }
+  .card .hd .pct { margin-left: auto; font-size: 20px; font-weight: 700; font-variant-numeric: tabular-nums; }
+  .card .sub { color: var(--muted); font-size: 12px; margin: 2px 0 8px; }
+  .card .hd.open { cursor: pointer; margin-bottom: 8px; }
+  .card .hd .t { flex: 1; min-width: 0; color: var(--muted); font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .card .bar { height: 8px; }
+  .card ul.list, .card .chips, .card > .empty { margin-top: 8px; font-size: 12px; }
+  .tag { display: inline-block; font-size: 10.5px; font-weight: 700; padding: 0 5px; border-radius: 4px; line-height: 16px; margin-right: 5px; }
+  .t-rv { color: var(--orange-fg); background: rgba(234, 88, 12, .12); }
+  .t-busy { color: var(--agent); background: rgba(37, 99, 235, .12); }
+  ul.list { list-style: none; margin: 0; padding: 0; display: grid; gap: 2px; font-size: 12px; }
+  ul.list li { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .no { font: 600 11px ui-monospace, Menlo, monospace; color: var(--muted); margin-right: 4px; }
+  .chips { display: flex; flex-wrap: wrap; gap: 4px; }
+  .chip { font-size: 11px; padding: 0 7px; border-radius: 99px; line-height: 18px; color: #fff; text-decoration: none; }
+  .c-draft { background: #6b7280; } .c-open { background: var(--green); } .c-merged { background: #7c3aed; } .c-closed { background: #dc2626; }
+  .acts { display: flex; gap: 8px; margin-top: 12px; }
+  button.go { font: inherit; font-size: 12px; padding: 5px 12px; border-radius: 99px; cursor: pointer; border: 1px solid var(--agent); background: var(--agent); color: #fff; font-weight: 600; }
+  button.plain { font: inherit; font-size: 12px; padding: 5px 12px; border-radius: 99px; cursor: pointer; border: 1px solid var(--border); background: var(--card); color: var(--fg); }
+  .empty { color: var(--muted); }
+  .ov { display: grid; gap: 16px; align-items: start; }
+  @media (min-width: 900px) { .ov { grid-template-columns: minmax(0, 1fr) minmax(320px, 400px); } .ov .chatcard { position: sticky; top: 0; } }
+  @media (max-width: 899px) { .ov .chatcard { order: -1; } }
+  .chatcard { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 12px 14px; display: flex; flex-direction: column; gap: 8px; }
+  .chatcard .hd { display: flex; align-items: center; gap: 8px; }
+  .chatcard .hd b { font-size: 14px; }
+  .chatcard .st { margin-left: auto; font-size: 11.5px; color: var(--muted); }
+  .chatcard .st.on { color: var(--agent); font-weight: 700; }
+  .chatcard .now { font-size: 11.5px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .msgs { display: flex; flex-direction: column; gap: 8px; height: 46vh; min-height: 260px; overflow: auto; padding: 4px 2px; }
+  .bub { max-width: 86%; padding: 7px 10px; border-radius: 12px; font-size: 12.5px; overflow-wrap: anywhere; }
+  .bub.user { align-self: flex-end; background: var(--agent); color: #fff; border-bottom-right-radius: 4px; white-space: pre-wrap; }
+  .bub.user a { color: inherit; text-decoration: underline; }
+  .bub.assistant { align-self: flex-start; background: var(--bg); border: 1px solid var(--border); border-bottom-left-radius: 4px; }
+  .bub.assistant :first-child { margin-top: 0; } .bub.assistant :last-child { margin-bottom: 0; }
+  .bub.assistant pre { white-space: pre-wrap; }
+  .bub.mail { align-self: flex-start; border: 1px dashed var(--border); color: var(--muted); white-space: pre-wrap; }
+  .bub .at { display: block; margin-top: 3px; font-size: 10.5px; opacity: .7; }
+  .tool { align-self: flex-start; font-size: 11px; color: var(--muted); padding-left: 4px; }
+  .tool::before { content: "⋯ "; }
+  .composer { display: flex; gap: 8px; align-items: flex-end; }
+  .composer textarea { flex: 1; min-height: 52px; max-height: 160px; resize: vertical; font: inherit; font-size: 13px; padding: 8px 10px; border-radius: 8px; border: 1px solid var(--border); background: var(--bg); color: var(--fg); }
+  .composer textarea:focus { outline: 2px solid var(--agent); outline-offset: -1px; }
+  .note { font-size: 11px; color: var(--muted); }
+  .err { color: #dc2626; font-size: 12px; }
+  .offline { position: absolute; inset: 0; display: grid; place-items: center; text-align: center; color: var(--muted); }
+  .ltip { position: fixed; left: 0; top: 0; z-index: 100; visibility: hidden; pointer-events: none; max-width: min(380px, calc(100vw - 16px)); padding: 8px 10px; border-radius: 8px; background: var(--card); color: var(--fg); border: 1px solid var(--border); box-shadow: 0 8px 24px rgba(0, 0, 0, .22); font-size: 12px; line-height: 1.45; overflow-wrap: anywhere; white-space: normal; text-align: left; font-weight: 400; }
+  .ltip-k { display: flex; align-items: center; gap: 6px; font-size: 11px; color: var(--muted); }
+  .ltip-t { margin: 1px 0; font-weight: 600; }
+  .ltip-l { color: var(--muted); }
+  .ltip-h { margin-top: 6px; padding-top: 6px; border-top: 1px solid var(--border); font-weight: 600; }
+  .ltip-err { color: #dc2626; }
+  .ltip-b { font-size: 10px; font-weight: 700; line-height: 16px; padding: 0 6px; border-radius: 99px; color: #fff; }
+  .ltip .b-draft { background: #6b7280; } .ltip .b-open { background: var(--green); } .ltip .b-merged { background: #7c3aed; } .ltip .b-closed { background: #dc2626; }
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script type="module">
+  import React, { useEffect, useLayoutEffect, useRef, useState } from 'https://esm.sh/react@18.3.1';
+  import { createRoot } from 'https://esm.sh/react-dom@18.3.1/client';
+  import htm from 'https://esm.sh/htm@3.1.1';
+  import { marked } from 'https://esm.sh/marked@12.0.2';
+  import DOMPurify from 'https://esm.sh/dompurify@3.1.6';
+
+  const html = htm.bind(React.createElement);
+  const OVERVIEW = '__overview__';
+  const WHO = { approve: '승인 필요', ext: '외부 확인', me: '내 작업', plan: '예정' };
+  const PR_STATE = (p) => (p.state === 'MERGED' ? ['merged', 'Merged'] : p.state === 'CLOSED' ? ['closed', 'Closed'] : p.isDraft ? ['draft', 'Draft'] : ['open', 'Open']);
+  const pct = (s) => (s && s.total ? Math.round((s.done / s.total) * 100) : 0);
+  const load = (k) => { try { return localStorage.getItem(k); } catch { return null; } };
+  const save = (k, v) => { try { localStorage.setItem(k, v); } catch {} };
+
+  DOMPurify.addHook('afterSanitizeAttributes', (node) => {
+    if (node.tagName === 'A') { node.setAttribute('target', '_blank'); node.setAttribute('rel', 'noreferrer'); }
+  });
+  const md = (text) => ({ __html: DOMPurify.sanitize(marked.parse(text ?? '')) });
+  // 사용자·세션 메시지는 마크다운으로 렌더하지 않으므로 http(s) URL 만 링크로 바꾼다. 끝의 문장부호는 링크에서 뺀다.
+  const linkify = (text) => (text ?? '').split(/(https?:\/\/[^\s<>"'`]+)/g).flatMap((p, i) => {
+    if (i % 2 === 0) return p ? [p] : [];
+    const url = p.replace(/[.,;:!?)\]}'"」』>]+$/, '');
+    const a = html`<a key=${i} href=${url} target="_blank" rel="noreferrer">${url}</a>`;
+    return url === p ? [a] : [a, p.slice(url.length)];
+  });
+  const kst = (iso) => (iso ? new Date(new Date(iso).getTime() + 9 * 3600e3).toISOString().slice(5, 16).replace('T', ' ') : '');
+
+  // 상태 태그 호버 문구(data-hint). 첫 줄은 태그 이름, 다음 줄부터 뜻·판정 근거. 뜻은 references/status-schema.md·operations.md 정의를 따른다.
+  const hint = (...lines) => lines.filter(Boolean).join('\n');
+  const WHO_HINT = {
+    approve: '커밋·push·외부 전송 등 사용자 승인을 기다리는 남은 일',
+    ext: '다른 사람·팀의 확인이나 답을 기다리는 남은 일',
+    me: '사용자가 직접 할 남은 일',
+    plan: '아직 시작하지 않은 예정된 일',
+  };
+  const REVIEWS_HINT = '변경안 작성이 끝나 검토를 기다리는 할 일 — 티켓 화면 「변경 검토」에서 적용';
+  const progressHint = (t, s) => hint(
+    `진행 ${pct(s)}%`, `할 일 ${s.done}/${s.total} 완료 · 남은 ${s.total - s.done}건`, `결과물 ${s.outsReady}/${s.outsTotal} 나옴`,
+    `티켓 상태를 3초마다 읽음 · 화면은 포트 ${t.port}`,
+  );
+  const downHint = (t) => hint('꺼짐', t.error ?? `티켓 대시보드(포트 ${t.port})를 띄우지 못함`, '통합 대시보드가 3초마다 다시 시도. 계속되면 hub/server.log 확인');
+  const reviewsHint = (s) => hint(`검토 대기 ${s.reviews.length}`, REVIEWS_HINT, ...s.reviews.slice(0, 6));
+  const busyHint = (s) => hint(
+    `작업 중 세션 ${s.busy.length}`, 'Claude 세션이 요청을 처리하는 중(~/.claude/sessions)',
+    ...s.busy.map((b) => `@${b.key} ${b.name}${b.step ? ` — ${b.step}` : ''}`),
+  );
+  const orchHint = (orch) => (orch?.online
+    ? hint(
+      orch.busy ? '작업 중' : '대기',
+      orch.busy ? '오케스트레이션 세션이 요청을 처리하는 중' : '세션은 살아 있고 다음 요청을 기다리는 중',
+      `세션 ${orch.name}`,
+      orch.step ? `${orch.busy ? '지금' : '마지막'} 단계: ${orch.step}${orch.stepAt ? ` · ${kst(orch.stepAt)}` : ''}` : null,
+    )
+    : hint('꺼짐', `${orch?.cwd ?? '~/orca/orchestrator'} 에서 살아 있는 Claude 세션을 찾지 못함`));
+
+  // 링크·상태 태그 호버 툴팁. 티켓 대시보드 index.html 에 같은 코드가 있다.
+  // 외부 링크는 /api/link 설명(같은 URL 1분 캐시), data-hint 가 있는 요소는 그 문구를 띄운다.
+  const linkCache = new Map();
+  const linkInfo = (url) => {
+    const hit = linkCache.get(url);
+    if (hit && Date.now() - hit.at < 60_000) return hit.p;
+    const p = fetch(`/api/link?url=${encodeURIComponent(url)}`).then(async (r) => {
+      const body = await r.json();
+      if (!r.ok) throw new Error(body.error ?? '설명을 가져오지 못함');
+      return body;
+    });
+    p.catch(() => {});
+    linkCache.set(url, { at: Date.now(), p });
+    return p;
+  };
+
+  function LinkTip() {
+    const [tip, setTip] = useState(null);
+    const ref = useRef(null);
+    useEffect(() => {
+      let cur = null;
+      let timer = null;
+      const hide = () => {
+        clearTimeout(timer);
+        cur = null;
+        setTip(null);
+      };
+      const onOver = (e) => {
+        const el = e.target.closest?.('a[href^="http"], [data-hint]');
+        if (el === cur) return;
+        hide();
+        const link = el?.matches('a[href^="http"]');
+        if (!el || (!link && !el.dataset.hint)) return;
+        cur = el;
+        timer = setTimeout(() => {
+          const next = { el, hint: el.dataset.hint || null };
+          if (link) Object.assign(next, { url: el.href, text: (el.dataset.label || el.innerText.split('\n')[0]).trim().slice(0, 120) });
+          setTip(next);
+          if (!link) return;
+          const set = (patch) => cur === el && setTip((t) => (t?.el === el ? { ...t, ...patch } : t));
+          linkInfo(el.href).then((d) => set({ d }), (err) => set({ error: err.message }));
+        }, 300);
+      };
+      const onOut = (e) => {
+        if (cur && !cur.contains(e.relatedTarget)) hide();
+      };
+      document.addEventListener('mouseover', onOver);
+      document.addEventListener('mouseout', onOut);
+      document.addEventListener('mousedown', hide);
+      window.addEventListener('scroll', hide, true);
+      return () => {
+        clearTimeout(timer);
+        document.removeEventListener('mouseover', onOver);
+        document.removeEventListener('mouseout', onOut);
+        document.removeEventListener('mousedown', hide);
+        window.removeEventListener('scroll', hide, true);
+      };
+    }, []);
+    useLayoutEffect(() => {
+      const box = ref.current;
+      if (!tip || !box) return;
+      const r = tip.el.getBoundingClientRect();
+      const m = 8;
+      const left = Math.max(m, Math.min(r.left, window.innerWidth - box.offsetWidth - m));
+      const below = r.bottom + 6;
+      box.style.left = `${left}px`;
+      box.style.top = `${below + box.offsetHeight + m > window.innerHeight ? Math.max(m, r.top - 6 - box.offsetHeight) : below}px`;
+      box.style.visibility = 'visible';
+    }, [tip]);
+    if (!tip) return null;
+    const [head, ...rest] = (tip.hint ?? '').split('\n');
+    const d = tip.d;
+    return html`
+      <div className="ltip" ref=${ref} role="tooltip">
+        ${tip.url
+          ? html`
+            <div className="ltip-k">${d?.label ?? '링크'}${d?.state ? html`<span className=${`ltip-b b-${d.state}`}>${d.stateLabel}</span>` : null}</div>
+            <div className="ltip-t">${d?.title || tip.text || tip.url}</div>
+            ${tip.error
+              ? html`<div className="ltip-l ltip-err">${tip.error}</div>`
+              : d ? d.lines.map((l, i) => html`<div key=${i} className="ltip-l">${l}</div>`) : html`<div className="ltip-l">불러오는 중…</div>`}
+            ${tip.hint ? html`<div className="ltip-h">${head}</div>` : null}`
+          : html`<div className="ltip-t">${head}</div>`}
+        ${rest.map((l, i) => html`<div key=${`h${i}`} className="ltip-l">${l}</div>`)}
+      </div>`;
+  }
+
+  function OrchestratorChat({ orch }) {
+    const [data, setData] = useState(null);
+    const [text, setText] = useState('');
+    const [busy, setBusy] = useState(false);
+    const [error, setError] = useState('');
+    const [sent, setSent] = useState([]);
+    const listRef = useRef(null);
+    const atBottom = useRef(true);
+    const inputRef = useRef(null);
+
+    const load = () => fetch('/api/orchestrator/messages').then((r) => r.json()).then(setData).catch(() => {});
+    useEffect(() => {
+      load();
+      const t = setInterval(load, 2500);
+      inputRef.current?.focus();
+      return () => clearInterval(t);
+    }, []);
+    const messages = data?.messages ?? [];
+    // 중계가 도착하기 전까지 보낸 메시지를 임시로 보여 준다.
+    const pending = sent.filter((p) => !messages.some((m) => m.role === 'user' && m.text === p.text && m.at >= p.at));
+    useEffect(() => {
+      const el = listRef.current;
+      if (el && atBottom.current) el.scrollTop = el.scrollHeight;
+    }, [messages.length, pending.length]);
+
+    const send = async () => {
+      const v = text.trim();
+      if (!v || busy || !orch?.online) return;
+      setBusy(true);
+      setError('');
+      const at = new Date().toISOString();
+      setSent((s) => [...s, { text: v, at }]);
+      setText('');
+      atBottom.current = true;
+      const r = await fetch('/api/orchestrator/send', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ text: v }) });
+      const body = await r.json().catch(() => ({}));
+      setBusy(false);
+      if (!r.ok) {
+        setError(body.error ?? '전송 실패');
+        setSent((s) => s.filter((x) => x.at !== at));
+        setText(v);
+      }
+      inputRef.current?.focus();
+      setTimeout(load, 800);
+    };
+
+    return html`
+      <section className="chatcard">
+        <div className="hd">
+          <b>오케스트레이션</b>
+          ${orch?.online ? html`<span className="no">${orch.name}</span>` : null}
+          <span className=${`st${orch?.busy ? ' on' : ''}`} data-hint=${orchHint(orch)}>${orch?.online ? (orch.busy ? '작업 중' : '대기') : '꺼짐'}</span>
+        </div>
+        ${orch?.online && orch.step
+          ? html`<div className="now" data-hint=${hint(orch.busy ? '지금 단계' : '마지막 단계', orch.step, orch.stepAt ? kst(orch.stepAt) : null)}>
+              지금 · ${orch.step} ${orch.stepAt ? `· ${kst(orch.stepAt)}` : ''}</div>`
+          : null}
+        <div className="msgs" ref=${listRef} onScroll=${(e) => {
+          const el = e.currentTarget;
+          atBottom.current = el.scrollHeight - el.scrollTop - el.clientHeight < 40;
+        }}>
+          ${orch?.online
+            ? [...messages.map((m, i) =>
+                m.role === 'tool' ? html`<div key=${'m' + i} className="tool">${m.text}</div>`
+                : m.role === 'mail' ? html`<div key=${'m' + i} className="bub mail"><span className="at" style=${{ marginTop: 0, marginBottom: 3 }}>세션 메시지 · ${m.subject}</span>${linkify(m.text)}<span className="at">${kst(m.at)}</span></div>`
+                : m.role === 'user' ? html`<div key=${'m' + i} className="bub user">${linkify(m.text)}<span className="at">${kst(m.at)}${m.via === 'dashboard' ? ' · 대시보드' : ''}</span></div>`
+                : html`<div key=${'m' + i} className="bub assistant"><div dangerouslySetInnerHTML=${md(m.text)}></div><span className="at">${kst(m.at)}</span></div>`),
+               ...pending.map((p) => html`<div key=${'p' + p.at} className="bub user" style=${{ opacity: 0.6 }}>${linkify(p.text)}<span className="at">보내는 중…</span></div>`)]
+            : html`<p className="empty">오케스트레이션 세션이 꺼져 있음. <code>${orch?.cwd ?? '~/orca/orchestrator'}</code> 에서 Claude 세션을 켜면 여기서 대화할 수 있음</p>`}
+        </div>
+        <div className="composer">
+          <textarea ref=${inputRef} value=${text} disabled=${!orch?.online}
+            placeholder=${orch?.online ? '오케스트레이션에 보낼 메시지 — Enter 보내기, Shift+Enter 줄바꿈' : '세션이 꺼져 있어 보낼 수 없음'}
+            onChange=${(e) => setText(e.target.value)}
+            onKeyDown=${(e) => {
+              if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing) { e.preventDefault(); send(); }
+            }}></textarea>
+          <button type="button" className="go" disabled=${busy || !text.trim() || !orch?.online} onClick=${send}>${busy ? '보내는 중' : '보내기'}</button>
+        </div>
+        ${error ? html`<div className="err">${error}</div>` : null}
+        <div className="note">Orca 채팅 메시지로 바로 전달됨. 받은 세션에선 사용자 승인으로 쓰이지 않음</div>
+      </section>`;
+  }
+
+  function Tab({ t, i, active, onSelect }) {
+    const s = t.summary;
+    return html`
+      <button type="button" className=${`tab${active ? ' on' : ''}`} onClick=${() => onSelect(t.key)}>
+        <div className="row"><b>${t.key}</b>${t.up ? null : html`<span className="down" data-hint=${downHint(t)}>꺼짐</span>`}<span className="kbd">⌥${i + 1}</span></div>
+        <div className="t" data-hint=${t.title}>${t.title}</div>
+        ${s
+          ? html`<div className="bar" data-hint=${progressHint(t, s)}><i style=${{ width: `${pct(s)}%` }}></i></div>
+              <div className="stats" data-hint=${progressHint(t, s)}>${s.done}/${s.total} · 남은 ${s.total - s.done}
+                ${s.reviews.length ? html` · <span className="rv" data-hint=${reviewsHint(s)}>검토 ${s.reviews.length}</span>` : null}
+                ${s.busy.length ? html` · <span className="busy" data-hint=${busyHint(s)}>작업 중 ${s.busy.length}</span>` : null}</div>`
+          : null}
+      </button>`;
+  }
+
+  function Card({ t, i, onSelect }) {
+    const s = t.summary;
+    if (!s) {
+      return html`
+        <div className="card">
+          <div className="hd"><b>${t.key}</b><span className="down" data-hint=${downHint(t)}>꺼짐</span></div>
+          <div className="sub">${t.title} · 포트 ${t.port}</div>
+          ${t.error ? html`<div className="sub">${t.error}</div>` : null}
+        </div>`;
+    }
+    // 카드에는 지금 볼 것(검토 대기·작업 중·남은 일 앞 3건·안 끝난 PR)만 두고, 작업 세션별 진행·마지막 기록은 툴팁으로 넘긴다
+    const openPrs = s.prs.filter((p) => p.state === 'OPEN');
+    const remaining = s.remaining.filter((r) => !s.reviews.includes(r.text));
+    const multiRepo = new Set(s.prs.map((p) => p.repo)).size > 1;
+    const title = t.title.startsWith(t.key) ? t.title.slice(t.key.length).trim() : t.title;
+    const tip = hint(
+      `진행 ${pct(s)}%`, `할 일 ${s.done}/${s.total} 완료 · 결과물 ${s.outsReady}/${s.outsTotal} 나옴`,
+      ...s.streams.map((x) => `${x.title} ${x.done}/${x.total}`),
+      s.lastLog ? `마지막 기록 #${s.lastLog.n} · ${s.lastLog.when} ${s.lastLog.content}` : null,
+    );
+    return html`
+      <div className="card">
+        <div className="hd open" role="button" tabIndex="0" onClick=${() => onSelect(t.key)}
+          onKeyDown=${(e) => { if (e.key === 'Enter') onSelect(t.key); }} data-hint=${hint(`${t.key} 열기 ⌥${i + 1}`, t.title)}>
+          <b>${t.key}</b><span className="t">${title}</span><span className="pct">${pct(s)}%</span></div>
+        <div className="bar" data-hint=${tip}><i style=${{ width: `${pct(s)}%` }}></i></div>
+        ${s.reviews.length
+          ? html`<ul className="list">${s.reviews.slice(0, 2).map((r, k) => html`<li key=${k} style=${{ color: 'var(--orange-fg)' }} data-hint=${hint('검토 대기', r, REVIEWS_HINT)}>
+                <span className="tag t-rv">검토</span>${r}</li>`)}
+              ${s.reviews.length > 2 ? html`<li className="stats" data-hint=${reviewsHint(s)}>검토 대기 외 ${s.reviews.length - 2}건</li>` : null}</ul>`
+          : null}
+        ${s.busy.length
+          ? html`<ul className="list">${s.busy.slice(0, 2).map((b) => html`<li key=${b.key}
+                data-hint=${hint(`@${b.key} ${b.name}`, '작업 중 — Claude 세션이 요청을 처리하는 중', b.step ? `지금 단계: ${b.step}${b.stepAt ? ` · ${kst(b.stepAt)}` : ''}` : null)}>
+                <span className="tag t-busy">작업 중</span>${b.step ?? b.name}</li>`)}</ul>`
+          : null}
+        ${remaining.length
+          ? html`<ul className="list">${remaining.slice(0, 3).map((r) => html`<li key=${r.no}
+                data-hint=${hint(`#${r.no} ${r.text}`, `남음 · 작업 세션 「${r.stream}」`, r.who ? `${WHO[r.who] ?? r.who} — ${WHO_HINT[r.who] ?? ''}` : null)}>
+                <span className="no">#${r.no}</span>${r.text}${r.who === 'approve' ? html` <span className="tag t-rv">승인</span>` : null}</li>`)}
+              ${remaining.length > 3
+                ? html`<li className="stats" data-hint=${hint(`외 ${remaining.length - 3}건`, ...remaining.slice(3, 13).map((r) => `#${r.no} ${r.text}`))}>남은 일 외 ${remaining.length - 3}건</li>`
+                : null}</ul>`
+          : s.reviews.length ? null : html`<div className="empty">남은 일 없음</div>`}
+        ${openPrs.length
+          ? html`<div className="chips">${openPrs.map((p) => html`<a key=${p.url} className=${`chip c-${PR_STATE(p)[0]}`} href=${p.url} target="_blank" rel="noreferrer">${multiRepo ? `${p.repo?.split('/')[1]} ` : ''}#${p.number} ${PR_STATE(p)[1]}</a>`)}</div>`
+          : null}
+      </div>`;
+  }
+
+  function App() {
+    const [tickets, setTickets] = useState([]);
+    const [orch, setOrch] = useState(null);
+    const [live, setLive] = useState(false);
+    const [active, setActive] = useState(() => decodeURIComponent(location.hash.slice(1)) || load('hub-active') || OVERVIEW);
+    const [visited, setVisited] = useState(() => new Set());
+    const ticketsRef = useRef([]);
+    ticketsRef.current = tickets;
+
+    const select = (key) => {
+      setActive(key);
+      save('hub-active', key);
+      history.replaceState(null, '', key === OVERVIEW ? location.pathname : `#${encodeURIComponent(key)}`);
+    };
+
+    useEffect(() => {
+      const es = new EventSource('/api/events');
+      es.onopen = () => setLive(true);
+      es.onerror = () => setLive(false);
+      es.addEventListener('tickets', (e) => {
+        const d = JSON.parse(e.data);
+        setTickets(d.tickets);
+        setOrch(d.orchestrator ?? null);
+        setLive(true);
+      });
+      return () => es.close();
+    }, []);
+
+    useEffect(() => {
+      if (active !== OVERVIEW) setVisited((v) => (v.has(active) ? v : new Set([...v, active])));
+    }, [active]);
+
+    // ⌥(또는 ⌘·Ctrl)+숫자로 탭 이동, ⌥↑↓로 앞뒤. 티켓 화면(iframe) 안에서 누른 키는 postMessage 로 넘어온다.
+    useEffect(() => {
+      const handle = ({ code, alt, meta, ctrl }) => {
+        if (!(alt || meta || ctrl)) return false;
+        const list = ticketsRef.current;
+        const digit = /^Digit(\d)$/.exec(code);
+        if (digit) {
+          const n = Number(digit[1]);
+          if (n === 0) select(OVERVIEW);
+          else if (list[n - 1]) select(list[n - 1].key);
+          return true;
+        }
+        if (alt && (code === 'ArrowUp' || code === 'ArrowDown')) {
+          const keys = [OVERVIEW, ...list.map((t) => t.key)];
+          setActive((cur) => {
+            const i = Math.max(0, keys.indexOf(cur));
+            const next = keys[(i + (code === 'ArrowDown' ? 1 : -1) + keys.length) % keys.length];
+            save('hub-active', next);
+            history.replaceState(null, '', next === OVERVIEW ? location.pathname : `#${encodeURIComponent(next)}`);
+            return next;
+          });
+          return true;
+        }
+        return false;
+      };
+      const onKey = (e) => {
+        if (handle({ code: e.code, alt: e.altKey, meta: e.metaKey, ctrl: e.ctrlKey })) e.preventDefault();
+      };
+      const onMsg = (e) => {
+        const ok = ticketsRef.current.some((t) => e.origin === `http://127.0.0.1:${t.port}` || e.origin === `http://localhost:${t.port}`);
+        if (ok && e.data?.type === 'hub-key') handle(e.data);
+      };
+      window.addEventListener('keydown', onKey, true);
+      window.addEventListener('message', onMsg);
+      return () => {
+        window.removeEventListener('keydown', onKey, true);
+        window.removeEventListener('message', onMsg);
+      };
+    }, []);
+
+    const current = tickets.find((t) => t.key === active);
+    return html`
+      <div className="app">
+        <aside>
+          <div className="brand"><b>티켓 대시보드</b><span className=${`live${live ? ' on' : ''}`}
+            data-hint=${live ? hint('실시간 연결', '통합 대시보드 서버와 SSE 연결됨 — 티켓 상태 3초마다 반영') : hint('연결 끊김', '서버(SSE) 연결이 끊겨 다시 연결하는 중')}></span></div>
+          <nav>
+            <button type="button" className=${`tab${active === OVERVIEW ? ' on' : ''}`} onClick=${() => select(OVERVIEW)}>
+              <div className="row"><b>전체 현황</b><span className="kbd">⌥0</span></div>
+              <div className="t" data-hint=${hint('전체 현황', `티켓 ${tickets.length}개 · 서버 켜짐 ${tickets.filter((t) => t.up).length}개`, `오케스트레이션 ${orch?.online ? (orch.busy ? '작업 중' : '대기') : '꺼짐'}`)}>티켓 ${tickets.length}개 · 작업 중 세션 ${tickets.reduce((n, t) => n + (t.summary?.busy.length ?? 0), 0)} · 오케스트레이션 ${orch?.online ? (orch.busy ? '작업 중' : '대기') : '꺼짐'}</div>
+            </button>
+            ${tickets.map((t, i) => html`<${Tab} key=${t.key} t=${t} i=${i} active=${active === t.key} onSelect=${select} />`)}
+          </nav>
+          <div className="hint">⌥0~9 탭 이동 · ⌥↑↓ 앞뒤 · 티켓 화면 안에서도 동작</div>
+        </aside>
+        <main>
+          ${active === OVERVIEW
+            ? html`<div className="overview">
+                <h1>전체 현황</h1>
+                <div className="ov">
+                  ${tickets.length
+                    ? html`<div className="grid">${tickets.map((t, i) => html`<${Card} key=${t.key} t=${t} i=${i} onSelect=${select} />`)}</div>`
+                    : html`<p className="empty">~/orca/dashboards 아래에 티켓 대시보드가 없음 — ticket-dashboard 스킬로 만든다</p>`}
+                  <${OrchestratorChat} orch=${orch} />
+                </div>
+              </div>`
+            : null}
+          ${tickets.filter((t) => visited.has(t.key) && t.up).map((t) => html`
+            <iframe key=${t.key} title=${t.key} src=${`http://127.0.0.1:${t.port}/`} style=${{ display: active === t.key ? 'block' : 'none' }}></iframe>`)}
+          ${active !== OVERVIEW && current && !current.up
+            ? html`<div className="offline"><div><p>${current.key} 대시보드를 띄우지 못함</p>${current.error ? html`<p className="sub">${current.error}</p>` : null}</div></div>`
+            : null}
+        </main>
+        <${LinkTip} />
+      </div>`;
+  }
+
+  createRoot(document.getElementById('root')).render(html`<${App} />`);
+</script>
+</body>
+</html>

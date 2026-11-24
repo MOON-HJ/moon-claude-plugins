@@ -1,0 +1,1909 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>티켓 대시보드</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@xyflow/react@12.3.6/dist/style.css" />
+<style>
+  :root {
+    --bg: #f6f7f9; --card: #fff; --fg: #171717; --muted: #6b7280; --border: #e5e7eb; --track: #eef0f3;
+    --orange: #ea580c; --orange-fg: #c2410c; --orange-bg: rgba(234, 88, 12, .09); --green: #16a34a; --link: #2563eb; --agent: #2563eb;
+    color-scheme: light;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #0f1115; --card: #181b21; --fg: #e5e7eb; --muted: #9ca3af; --border: #2a2f38; --track: #262a31;
+      --orange-fg: #fb923c; --orange-bg: rgba(234, 88, 12, .16); --link: #93c5fd; --agent: #60a5fa;
+      color-scheme: dark;
+    }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--fg); font: 13px/1.45 -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo", sans-serif; }
+  a { color: var(--link); }
+  .wrap { max-width: 1440px; margin: 0 auto; padding: 16px; }
+  .top { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 16px; margin-bottom: 12px; }
+  .top h1 { font-size: 18px; margin: 0; }
+  .s { font-size: 13px; color: var(--muted); font-variant-numeric: tabular-nums; }
+  .s b { color: var(--fg); }
+  .pending { color: var(--orange-fg); font-weight: 700; }
+  .live { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; color: var(--muted); }
+  .live i { width: 8px; height: 8px; border-radius: 50%; background: #9ca3af; }
+  .live.on i { background: var(--green); box-shadow: 0 0 0 3px rgba(22, 163, 74, .18); }
+  .top .right { margin-left: auto; display: flex; align-items: center; gap: 10px; }
+  button {
+    font: inherit; font-size: 12px; padding: 4px 10px; cursor: pointer; border-radius: 99px;
+    border: 1px solid var(--border); background: var(--card); color: var(--fg);
+  }
+  button:hover { border-color: var(--muted); }
+  .grid { display: grid; gap: 14px; }
+  .flow { position: relative; border: 1px solid var(--border); border-radius: 12px; background: var(--card); overflow: hidden; }
+  .replay { position: absolute; right: 10px; top: 10px; z-index: 6; font-size: 11.5px; padding: 3px 10px; border-radius: 99px; border: 1px solid var(--border); background: var(--card); color: var(--fg); cursor: pointer; }
+  .replay:hover { border-color: #7c3aed; color: #7c3aed; }
+  .token { position: absolute; left: 0; top: 0; z-index: 20; pointer-events: none; transition: transform .5s ease-in-out; display: flex; align-items: center; gap: 6px; }
+  .token i { width: 14px; height: 14px; border-radius: 50%; background: var(--agent); box-shadow: 0 0 0 4px rgba(37, 99, 235, .2); flex: none; }
+  .token.fail i { background: #7c3aed; box-shadow: 0 0 0 4px rgba(124, 58, 237, .22); }
+  .token.pass i { background: var(--green); box-shadow: 0 0 0 4px rgba(22, 163, 74, .22); }
+  .token.live i { animation: pulse 1.4s ease-in-out infinite; }
+  .token span { font-size: 11px; font-weight: 700; white-space: nowrap; padding: 1px 6px; border-radius: 4px; background: var(--card); border: 1px solid var(--border); color: var(--fg); }
+  @keyframes pulse { 50% { box-shadow: 0 0 0 9px rgba(37, 99, 235, 0); } }
+  .react-flow__attribution { display: none; }
+  .react-flow__background { background: var(--bg); }
+  .hdl { opacity: 0; width: 6px; height: 6px; min-width: 0; min-height: 0; border: 0; pointer-events: none; }
+  .tier { font-size: 10px; line-height: 14px; font-weight: 700; letter-spacing: .06em; color: var(--muted); }
+
+  .lead {
+    width: 460px; height: 124px; overflow: hidden;
+    background: var(--card); color: var(--fg); border: 1px solid var(--border); border-top: 4px solid #9ca3af;
+    border-radius: 12px; padding: 8px 14px; font-size: 12px; box-shadow: 0 1px 3px rgba(0, 0, 0, .08);
+  }
+  .lead.busy { border-top-color: var(--agent); box-shadow: 0 0 0 3px rgba(37, 99, 235, .12); }
+  .lead .ah { display: flex; align-items: center; gap: 6px; height: 22px; }
+  .lead .ah b { font-size: 14px; }
+  .chip { margin-left: auto; display: inline-flex; align-items: center; gap: 5px; font-size: 10.5px; font-weight: 700; color: var(--muted); }
+  .chip i { width: 7px; height: 7px; border-radius: 50%; background: #9ca3af; }
+  .busy .chip, .sess .on { color: var(--agent); }
+  .busy .chip i, .sess .on i { background: var(--agent); animation: pulse 1.2s infinite; }
+  .lead .rq { margin-top: 3px; height: 36px; line-height: 18px; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+  .lead .rq em, .lead .now em { font-style: normal; color: var(--muted); margin-right: 4px; }
+  .lead .now { margin-top: 3px; height: 18px; line-height: 18px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .lead.busy .now { color: var(--agent); font-weight: 600; }
+  .lead .now small { font-weight: 400; color: var(--muted); }
+  .lead.pipe { width: 300px; height: auto; min-height: 124px; }
+  .lead ul { list-style: none; margin: 6px 0 0; padding: 0; }
+  .lead li { line-height: 18px; color: var(--orange-fg); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .lead li::before { content: "○ "; }
+  .spin { display: inline-block; width: 9px; height: 9px; margin-right: 5px; border: 2px solid currentColor; border-right-color: transparent; border-radius: 50%; animation: spin .8s linear infinite; vertical-align: -1px; }
+
+  .task {
+    width: 220px; overflow: hidden; cursor: pointer;
+    background: var(--card); color: var(--fg); border: 1px solid var(--border); border-radius: 10px;
+    padding: 10px 12px; font-size: 12px; box-shadow: 0 1px 2px rgba(0, 0, 0, .06);
+  }
+  .task.sel { border-color: var(--link); box-shadow: 0 0 0 2px rgba(37, 99, 235, .25); }
+  .task .h { display: flex; align-items: baseline; gap: 6px; height: 22px; margin-bottom: 6px; white-space: nowrap; }
+  .task .h b { font-size: 14px; }
+  .task .h span { font-size: 11.5px; color: var(--muted); }
+  .task .p { display: flex; align-items: center; gap: 8px; height: 16px; font-size: 11.5px; color: var(--muted); font-variant-numeric: tabular-nums; }
+  .bar { flex: 1; height: 5px; border-radius: 99px; background: var(--track); overflow: hidden; }
+  .bar i { display: block; height: 100%; background: var(--green); transition: width .4s; }
+  .task ul { list-style: none; margin: 8px 0 0; padding: 0; }
+  .task li { line-height: 18px; color: var(--orange-fg); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .task li::before { content: "○ "; }
+  .sess { margin-top: 8px; padding-top: 6px; border-top: 1px dashed var(--border); }
+  .sess div { display: flex; align-items: center; gap: 5px; height: 20px; font-size: 11.5px; color: var(--muted); white-space: nowrap; overflow: hidden; }
+  .sess i { flex: none; width: 7px; height: 7px; border-radius: 50%; background: #9ca3af; }
+  .sess span { overflow: hidden; text-overflow: ellipsis; }
+  .sess .on { font-weight: 600; }
+
+  .out {
+    width: 196px; height: 50px; display: grid; grid-template-columns: 14px minmax(0, 1fr) auto; gap: 0 7px; align-items: center;
+    background: var(--card); color: var(--fg); border: 1px solid var(--border); border-radius: 3px 12px 3px 3px;
+    padding: 7px 10px; font-size: 12px; text-decoration: none;
+  }
+  a.out:hover b { text-decoration: underline; }
+  .out .ic { grid-row: 1 / span 2; color: #94a3b8; display: flex; }
+  .out b { line-height: 18px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .out small { grid-column: 2; line-height: 16px; color: var(--muted); font-size: 11px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .out small a { color: inherit; }
+  .out .st { grid-column: 3; grid-row: 1 / span 2; font-size: 10px; font-weight: 700; }
+  .out.wait { border-color: var(--orange); background: var(--orange-bg); }
+  .out.wait .ic, .out.wait b, .out.wait small { color: var(--orange-fg); }
+  .out.wait .st { color: #fff; background: var(--orange); padding: 1px 6px; border-radius: 99px; }
+  .task.working, .out.working { border-color: var(--agent); animation: glow 1.6s ease-in-out infinite; }
+  .flash { animation: flash 2.6s ease-out; }
+  @keyframes flash { 0%, 30% { box-shadow: 0 0 0 4px rgba(22, 163, 74, .55); } 100% { box-shadow: 0 0 0 0 rgba(22, 163, 74, 0); } }
+  @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: .3; } }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  @keyframes glow { 0%, 100% { box-shadow: 0 0 0 2px rgba(37, 99, 235, .15); } 50% { box-shadow: 0 0 0 6px rgba(37, 99, 235, .28); } }
+
+  .side { display: grid; gap: 14px; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); align-items: start; }
+  .stack { display: grid; gap: 14px; align-content: start; }
+  .cycles { list-style: none; margin: 0; padding: 0; display: grid; gap: 2px; }
+  .cycles li { display: grid; grid-template-columns: auto auto auto minmax(0, 1fr); gap: 0 8px; align-items: baseline; padding: 4px 6px; border-radius: 6px; font-size: 12px; }
+  .cycles li:hover { background: var(--bg); }
+  .cycles .n { font: 600 11px ui-monospace, Menlo, monospace; color: var(--muted); }
+  .cycles .r { font-size: 11px; font-weight: 700; }
+  .cycles .r.ok { color: var(--green); } .cycles .r.fail { color: #7c3aed; } .cycles .r.doing { color: var(--agent); }
+  .cycles .t { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .cycles li.more { display: block; color: var(--muted); font-size: 11.5px; cursor: pointer; }
+  .panel { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 12px 14px; }
+  .panel h2 { display: flex; align-items: baseline; gap: 8px; font-size: 14px; margin: 0 0 8px; }
+  .panel h2 small { font-size: 12px; color: var(--muted); font-weight: 500; }
+  .panel h2 button { margin-left: auto; }
+  .items { list-style: none; margin: 0; padding: 0; display: grid; gap: 2px; }
+  .items li { display: flex; align-items: flex-start; gap: 6px; padding: 3px 4px; border-radius: 6px; }
+  .items li:hover { background: var(--bg); }
+  .items label { display: flex; gap: 6px; flex: 1; cursor: pointer; }
+  .items input { margin: 2px 0 0; accent-color: var(--green); }
+  .items li.on span.t { color: var(--muted); text-decoration: line-through; }
+  .items .grp { color: var(--muted); font-size: 11.5px; }
+  .key { flex: none; display: inline-block; min-width: 30px; font: 600 11px/18px ui-monospace, Menlo, monospace; color: var(--muted); }
+  .items li.on .key { text-decoration: line-through; }
+  .items li.sep { display: block; margin-top: 6px; padding: 6px 4px 2px; border-top: 1px dashed var(--border); border-radius: 0; font-size: 11.5px; font-weight: 600; color: var(--muted); }
+  .items li.sep:hover { background: none; }
+  .items li.more { cursor: pointer; color: var(--link); font-weight: 500; border-top: 0; margin-top: 0; }
+  .badge { flex: none; font-size: 10.5px; font-weight: 600; padding: 0 6px; border-radius: 99px; line-height: 17px; }
+  .w-approve { background: rgba(234, 88, 12, .14); color: var(--orange-fg); }
+  .w-ext { background: rgba(37, 99, 235, .13); color: var(--link); }
+  .w-me { background: rgba(124, 58, 237, .14); color: #8b5cf6; }
+  .w-plan { background: rgba(100, 116, 139, .16); color: var(--muted); }
+  .auto { background: rgba(22, 163, 74, .13); color: var(--green); }
+  .pr + .pr { border-top: 1px solid var(--border); margin-top: 8px; padding-top: 8px; }
+  .pr .line { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+  .pr .title { margin: 2px 0; }
+  .pr .meta { font-size: 11.5px; color: var(--muted); font-variant-numeric: tabular-nums; }
+  .state { font-size: 10.5px; font-weight: 700; padding: 0 7px; border-radius: 99px; line-height: 18px; color: #fff; }
+  .s-draft { background: #6b7280; } .s-open { background: var(--green); } .s-merged { background: #7c3aed; } .s-closed { background: #dc2626; }
+  .fail { color: #dc2626; }
+  .log { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+  .log li { display: grid; grid-template-columns: 44px minmax(0, 1fr); gap: 2px 8px; }
+  .log .n { font-weight: 700; font-variant-numeric: tabular-nums; color: var(--muted); }
+  .log .c { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+  .log .m { grid-column: 2; font-size: 11.5px; color: var(--muted); }
+  .foot { margin-top: 10px; font-size: 11.5px; color: var(--muted); }
+  .err { color: #dc2626; }
+  .go { font-size: 11px; padding: 1px 9px; border-color: var(--agent); color: var(--agent); font-weight: 600; }
+  .go:hover { background: var(--agent); color: #fff; }
+  .next { border-color: var(--agent); background: var(--agent); color: #fff; font-weight: 600; max-width: 360px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .next:hover { filter: brightness(1.08); border-color: var(--agent); }
+  .running { background: rgba(37, 99, 235, .13); color: var(--agent); }
+  .modal-bg { position: fixed; inset: 0; background: rgba(15, 17, 21, .45); display: flex; align-items: center; justify-content: center; padding: 16px; z-index: 50; }
+  .modal { width: min(560px, 100%); max-height: calc(100% - 32px); overflow: auto; background: var(--card); color: var(--fg); border: 1px solid var(--border); border-radius: 14px; padding: 18px 20px; box-shadow: 0 20px 50px rgba(0, 0, 0, .25); }
+  .modal h3 { margin: 0 0 4px; font-size: 16px; }
+  .modal .sub { color: var(--muted); font-size: 12.5px; margin-bottom: 12px; }
+  .modal dl { display: grid; grid-template-columns: 72px minmax(0, 1fr); gap: 6px 10px; margin: 0 0 12px; font-size: 12.5px; }
+  .modal dt { color: var(--muted); }
+  .modal dd { margin: 0; overflow-wrap: anywhere; }
+  .modal details { margin-bottom: 12px; font-size: 12px; }
+  .modal summary { cursor: pointer; color: var(--muted); }
+  .modal pre { white-space: pre-wrap; background: var(--bg); border: 1px solid var(--border); border-radius: 8px; padding: 8px 10px; margin: 6px 0 0; font-size: 11.5px; max-height: 200px; overflow: auto; }
+  .modal label.f { display: block; font-size: 12.5px; font-weight: 600; margin-bottom: 4px; }
+  .modal textarea { width: 100%; min-height: 96px; resize: vertical; font: inherit; font-size: 13px; padding: 8px 10px; border-radius: 8px; border: 1px solid var(--border); background: var(--bg); color: var(--fg); }
+  .modal textarea:focus { outline: 2px solid var(--agent); outline-offset: -1px; }
+  .modal .warn { margin: 10px 0 0; font-size: 12px; color: var(--muted); }
+  .modal .acts { display: flex; justify-content: flex-end; gap: 8px; margin-top: 14px; }
+  .modal .acts button { font-size: 13px; padding: 6px 16px; }
+  .modal .acts .ok { background: var(--agent); border-color: var(--agent); color: #fff; font-weight: 600; }
+  .modal .acts .ok:disabled { opacity: .5; cursor: default; }
+  .pv { font-size: 11px; padding: 1px 9px; color: var(--muted); }
+  .modal.wide { width: min(860px, 100%); }
+  .tabs { display: flex; gap: 4px; flex-wrap: wrap; border-bottom: 1px solid var(--border); margin-bottom: 10px; }
+  .tabs button { border: 0; border-radius: 6px 6px 0 0; background: none; padding: 6px 10px; color: var(--muted); font-weight: 600; }
+  .tabs button[aria-selected="true"] { color: var(--fg); box-shadow: inset 0 -2px 0 var(--agent); }
+  .pvbox { font-size: 12.5px; }
+  .pvbox .meta { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-bottom: 8px; color: var(--muted); font-size: 12px; }
+  .pvbox h4 { margin: 12px 0 6px; font-size: 12.5px; color: var(--muted); }
+  .md { border: 1px solid var(--border); border-radius: 8px; padding: 10px 12px; background: var(--bg); max-height: 340px; overflow: auto; overflow-wrap: anywhere; }
+  .md :first-child { margin-top: 0; } .md :last-child { margin-bottom: 0; }
+  .md h1, .md h2, .md h3 { font-size: 13.5px; margin: 12px 0 6px; }
+  .md img { max-width: 100%; }
+  .md table { border-collapse: collapse; font-size: 12px; } .md td, .md th { border: 1px solid var(--border); padding: 3px 6px; }
+  .md pre { white-space: pre-wrap; background: var(--card); padding: 6px 8px; border-radius: 6px; }
+  .cmts { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+  .cmts li { border-left: 3px solid var(--border); padding: 2px 0 2px 10px; }
+  .cmts .who { font-size: 11.5px; color: var(--muted); margin-bottom: 2px; }
+  .cmts .txt { white-space: pre-wrap; overflow-wrap: anywhere; }
+  .files { list-style: none; margin: 0; padding: 0; font: 11.5px/1.6 ui-monospace, Menlo, monospace; max-height: 160px; overflow: auto; }
+  .files .a { color: var(--green); } .files .d { color: #dc2626; }
+  .diff { border: 1px solid var(--border); border-radius: 8px; overflow: auto; max-height: 520px; font-size: 12px; background: var(--card); }
+  .diff .ln { display: grid; grid-template-columns: 40px 40px 16px minmax(0, 1fr); }
+  .diff .ln span { padding: 1px 6px; white-space: pre-wrap; overflow-wrap: anywhere; }
+  .diff .no { color: var(--muted); text-align: right; font: 11px/1.7 ui-monospace, Menlo, monospace; user-select: none; }
+  .diff .sg { color: var(--muted); font-family: ui-monospace, Menlo, monospace; }
+  .diff .add { background: rgba(22, 163, 74, .12); } .diff .add .sg { color: var(--green); }
+  .diff .del { background: rgba(220, 38, 38, .11); } .diff .del .sg { color: #dc2626; }
+  .diff .hk { background: var(--bg); color: var(--muted); font: 11px/1.8 ui-monospace, Menlo, monospace; padding: 2px 8px; border-top: 1px solid var(--border); }
+  .diff .hk:first-child { border-top: 0; }
+  .docs { list-style: none; margin: 0; padding: 0; display: grid; gap: 2px; }
+  .docs li { display: grid; grid-template-columns: auto minmax(0, max-content) minmax(0, 1fr); gap: 0 8px; align-items: baseline; padding: 4px 6px; border-radius: 6px; cursor: pointer; font-size: 12px; }
+  .docs li:hover { background: var(--bg); }
+  .docs .m { font: 11px ui-monospace, Menlo, monospace; color: var(--muted); }
+  .docs .f { max-width: 11em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-weight: 600; }
+  .docs .sum { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .docs li.more { display: block; color: var(--muted); font-size: 11.5px; }
+  .plus { color: var(--green); } .minus { color: #dc2626; }
+  .src { font-size: 10px; font-weight: 700; padding: 0 6px; border-radius: 99px; background: var(--bg); border: 1px solid var(--border); color: var(--muted); margin-right: 4px; }
+  .rv { font-size: 11px; padding: 1px 9px; border-color: var(--orange); background: var(--orange); color: #fff; font-weight: 700; }
+  .rv:hover { filter: brightness(1.08); border-color: var(--orange); }
+  .chg { border: 1px solid var(--border); border-radius: 10px; padding: 10px 12px; margin-bottom: 10px; }
+  .chg .hd { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-bottom: 8px; font-size: 12.5px; }
+  .kind { font-size: 10.5px; font-weight: 700; padding: 0 7px; border-radius: 99px; color: #fff; line-height: 18px; }
+  .k-pr-body { background: #7c3aed; } .k-file { background: #0891b2; } .k-message { background: var(--orange); } .k-note { background: #6b7280; }
+  .chg .tg { color: var(--muted); font-size: 11.5px; overflow-wrap: anywhere; }
+  .modal .acts .warnbtn { background: var(--orange); border-color: var(--orange); color: #fff; font-weight: 700; }
+  .lead.click { cursor: pointer; }
+  .lead.click:hover { border-color: var(--agent); }
+  .sess div.click { cursor: pointer; border-radius: 4px; }
+  .sess div.click:hover { background: var(--bg); color: var(--fg); }
+  .chat { display: flex; flex-direction: column; gap: 8px; max-height: 52vh; overflow: auto; padding: 4px 2px 8px; }
+  .bub { max-width: 82%; padding: 8px 11px; border-radius: 12px; font-size: 12.5px; overflow-wrap: anywhere; }
+  .bub.user { align-self: flex-end; background: var(--agent); color: #fff; border-bottom-right-radius: 4px; white-space: pre-wrap; }
+  .bub.user a { color: inherit; text-decoration: underline; }
+  .bub.assistant { align-self: flex-start; background: var(--bg); border: 1px solid var(--border); border-bottom-left-radius: 4px; }
+  .bub.assistant :first-child { margin-top: 0; } .bub.assistant :last-child { margin-bottom: 0; }
+  .bub.assistant pre { white-space: pre-wrap; }
+  .bub .at { display: block; margin-top: 3px; font-size: 10.5px; opacity: .7; }
+  .bub.mail { align-self: flex-start; background: transparent; border: 1px dashed var(--border); color: var(--muted); white-space: pre-wrap; }
+  .tool { align-self: flex-start; font-size: 11px; color: var(--muted); padding-left: 4px; }
+  .tool::before { content: "⋯ "; }
+  .composer { display: flex; gap: 8px; align-items: flex-end; margin-top: 8px; }
+  .composer textarea { min-height: 56px; }
+  .composer button { flex: none; padding: 8px 16px; font-size: 13px; background: var(--agent); border-color: var(--agent); color: #fff; font-weight: 600; }
+  .composer button:disabled { opacity: .5; }
+  .at-key { font: 600 11px ui-monospace, Menlo, monospace; color: var(--agent); background: rgba(37, 99, 235, .1); border-radius: 4px; padding: 0 5px; }
+  .pal-bg { position: fixed; inset: 0; background: rgba(15, 17, 21, .35); display: flex; justify-content: center; align-items: flex-start; padding: 12vh 16px 16px; z-index: 60; }
+  .pal { width: min(640px, 100%); background: var(--card); color: var(--fg); border: 1px solid var(--border); border-radius: 14px; box-shadow: 0 24px 60px rgba(0, 0, 0, .3); overflow: hidden; }
+  .pal textarea { display: block; width: 100%; min-height: 54px; max-height: 220px; resize: none; border: 0; outline: 0; padding: 14px 16px; font: inherit; font-size: 15px; background: transparent; color: var(--fg); }
+  .pal .to { display: flex; align-items: center; gap: 6px; padding: 8px 16px 0; font-size: 12px; color: var(--muted); }
+  .pal ul { list-style: none; margin: 0; padding: 4px; border-top: 1px solid var(--border); max-height: 320px; overflow: auto; }
+  .pal li { display: grid; grid-template-columns: 64px minmax(0, 1fr) auto; gap: 2px 10px; align-items: center; padding: 7px 10px; border-radius: 8px; cursor: pointer; }
+  .pal li.on { background: rgba(37, 99, 235, .1); }
+  .pal li.off { opacity: .55; }
+  .pal li small { grid-column: 2 / span 2; color: var(--muted); font-size: 11.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .pal .hint { display: flex; flex-wrap: wrap; gap: 4px 14px; padding: 8px 16px; border-top: 1px solid var(--border); font-size: 11.5px; color: var(--muted); }
+  .pal kbd { font: 11px ui-monospace, Menlo, monospace; border: 1px solid var(--border); border-bottom-width: 2px; border-radius: 4px; padding: 0 4px; background: var(--bg); }
+  .ck { margin-left: 6px; font: 10.5px ui-monospace, Menlo, monospace; opacity: .75; }
+  .row-main { display: flex; gap: 6px; flex: 1; align-items: flex-start; min-width: 0; border: 0; background: none; padding: 0; margin: 0; font: inherit; color: inherit; text-align: left; cursor: pointer; border-radius: 0; }
+  .row-main:hover .t { text-decoration: underline; }
+  .notice { position: fixed; bottom: 16px; left: 50%; transform: translateX(-50%); background: #111827; color: #fff; padding: 8px 14px; border-radius: 8px; font-size: 12.5px; }
+  .ltip { position: fixed; left: 0; top: 0; z-index: 100; visibility: hidden; pointer-events: none; max-width: min(380px, calc(100vw - 16px)); padding: 8px 10px; border-radius: 8px; background: var(--card); color: var(--fg); border: 1px solid var(--border); box-shadow: 0 8px 24px rgba(0, 0, 0, .22); font-size: 12px; line-height: 1.45; overflow-wrap: anywhere; white-space: normal; text-align: left; font-weight: 400; }
+  .ltip-k { display: flex; align-items: center; gap: 6px; font-size: 11px; color: var(--muted); }
+  .ltip-t { margin: 1px 0; font-weight: 600; }
+  .ltip-l { color: var(--muted); }
+  .ltip-h { margin-top: 6px; padding-top: 6px; border-top: 1px solid var(--border); font-weight: 600; }
+  .ltip-err { color: #dc2626; }
+  .ltip-b { font-size: 10px; font-weight: 700; line-height: 16px; padding: 0 6px; border-radius: 99px; color: #fff; }
+  .ltip .b-draft { background: #6b7280; } .ltip .b-open { background: var(--green); } .ltip .b-merged { background: #7c3aed; } .ltip .b-closed { background: #dc2626; }
+</style>
+</head>
+<body>
+<div id="root"></div>
+
+<script type="module">
+  import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'https://esm.sh/react@18.3.1';
+  import { createRoot } from 'https://esm.sh/react-dom@18.3.1/client';
+  import {
+    ReactFlow, ReactFlowProvider, Background, Handle, Position, BaseEdge, getSmoothStepPath, MarkerType, ViewportPortal,
+    useNodesState, useReactFlow,
+  } from 'https://esm.sh/@xyflow/react@12.3.6?deps=react@18.3.1,react-dom@18.3.1';
+  import htm from 'https://esm.sh/htm@3.1.1';
+  import { marked } from 'https://esm.sh/marked@12.0.2';
+  import DOMPurify from 'https://esm.sh/dompurify@3.1.6';
+
+  const html = htm.bind(React.createElement);
+
+  let JIRA = 'https://your-domain.atlassian.net/browse/';
+  const WHO = { approve: '승인 필요', ext: '외부 확인', me: '내 작업', plan: '예정' };
+  const REVIEW = { APPROVED: '승인됨', CHANGES_REQUESTED: '변경 요청', REVIEW_REQUIRED: '리뷰 대기' };
+  const LEAD_W = 460, LEAD_H = 124, CW = 220, COL_GAP = 28, PIPE_GAP = 52, STREAM_Y = LEAD_H + 70, LOOP_H = 30;
+  const PIPE_LEAD_W = 300, PIPE_Y = LOOP_H + 30;
+  const leadHeight = (initial) => LEAD_H + (initial ? 8 + 18 * initial : 0);
+  const OUT_INDENT = 24, OUT_H = 50, OUT_GAP = 10, OUT_TOP = 24;
+  const AGENT_COLOR = '#2563eb';
+
+  const taskHeight = (left, sessions) => 80 + (left ? 8 + 18 * left : 0) + (sessions ? 15 + 20 * sessions : 0);
+  const remainingOf = (s) => s.items.filter((it) => !it.done && !it.out);
+  // status.json stages(선택, flow: "pipeline"): 작업 세션(레포·작업 폴더)은 그대로 두고 할 일의 stage 로 흐름도를 단계별로 그린다.
+  // stage 가 없는 할 일은 완료면 마지막 단계, 남았으면 build(없으면 리드가 아닌 첫 단계).
+  const staged = (state) => state.flow === 'pipeline' && Array.isArray(state.stages) && state.stages.length > 0;
+  // GitHub 자동 판정 할 일은 병합·배포를 기다리는 일이라 마지막 단계에 둔다. 결과물은 stages[].outs 가 없으면 연결된 남은 할 일의 단계, 다 끝났으면 마지막 단계.
+  const stageOf = (state, it) => {
+    if (it?.stage) return it.stage;
+    if (it?.done || it?.isAuto) return state.stages.at(-1).id;
+    return (state.stages.find((st) => st.id === 'build') ?? state.stages.find((st) => !st.lead) ?? state.stages[0]).id;
+  };
+  const flowStreams = (state) => {
+    if (!staged(state)) return state.streams;
+    const all = state.streams.flatMap((s) => s.items);
+    const leadIds = new Set(state.stages.filter((st) => st.lead).map((st) => st.id));
+    const outStage = (id) => {
+      const open = all.find((it) => it.out === id && !it.done);
+      const o = state.outputs[id];
+      const st = open ? stageOf(state, open) : o?.done || o?.auto ? state.stages.at(-1).id : stageOf(state, null);
+      return leadIds.has(st) ? stageOf(state, null) : st;
+    };
+    const outIds = Object.keys(state.outputs ?? {});
+    return state.stages.map((st) => ({
+      ...st, outs: st.outs ?? outIds.filter((id) => outStage(id) === st.id), items: all.filter((it) => stageOf(state, it) === st.id),
+    }));
+  };
+  const kst = (iso) => (iso ? new Date(new Date(iso).getTime() + 9 * 3600e3).toISOString().slice(5, 19).replace('T', ' ') : '–');
+  const ago = (iso, now) => {
+    if (!iso) return '';
+    const s = Math.max(0, Math.round((now - new Date(iso).getTime()) / 1000));
+    return s < 60 ? `${s}초 전` : s < 3600 ? `${Math.floor(s / 60)}분 전` : `${Math.floor(s / 3600)}시간 전`;
+  };
+
+  function useNow() {
+    const [now, setNow] = useState(Date.now());
+    useEffect(() => {
+      const t = setInterval(() => setNow(Date.now()), 1000);
+      return () => clearInterval(t);
+    }, []);
+    return now;
+  }
+
+  const fileIcon = html`
+    <svg width="12" height="14" viewBox="0 0 12 14" aria-hidden="true">
+      <path d="M1 1h6l4 4v8H1z" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round" />
+      <path d="M7 1v4h4" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round" />
+    </svg>`;
+
+  function LeadNode({ data }) {
+    const now = useNow();
+    const { lead: a, streamTitle, onChat, stage, initial = [] } = data;
+    const pipe = stage !== undefined;
+    const tier = pipe ? `리드 세션 · ${stage}` : '리드 세션';
+    const next = pipe ? html`<${Handle} type="source" position=${Position.Right} id="next" isConnectable=${false} className="hdl" style=${{ top: 38 }} />` : null;
+    const waiting = initial.length
+      ? html`<ul>${initial.map((it) => html`<li key=${it.id} data-hint=${hint(`#${it.no} ${it.text}`, '접수한 요청 — 아직 다음 단계로 넘기지 않음', it.who ? `담당: ${WHO[it.who]} — ${WHO_HINT[it.who]}` : null)}>#${it.no} ${it.text}</li>`)}</ul>`
+      : null;
+    if (!a) {
+      return html`
+        <div className=${`lead${pipe ? ' pipe' : ''}`} style=${pipe ? { height: leadHeight(initial.length) } : null} data-hint=${hint('꺼짐', '감시 폴더(agents.watch 의 role: lead)에서 살아 있는 리드 세션을 찾지 못함')}>
+          <${Handle} type="source" position=${Position.Bottom} isConnectable=${false} className="hdl" />
+          ${next}
+          <div className="tier">${tier}</div>
+          <div className="ah"><b>리드 세션 꺼짐</b></div>
+          <div className="rq">감시 중인 리드 워크트리에서 살아 있는 세션을 찾지 못함</div>
+          ${waiting}
+        </div>`;
+    }
+    return html`
+      <div className=${`lead click nodrag${a.busy ? ' busy' : ''}${pipe ? ' pipe' : ''}`} onClick=${() => onChat(a.id)}
+        style=${pipe ? { height: leadHeight(initial.length) } : null}
+        data-hint=${sessionHint(a, hint(a.busy && streamTitle ? `작업 세션: ${streamTitle}(요청 키워드·focus 로 추정)` : null, '눌러서 이 세션과 채팅'))}>
+        <${Handle} type="source" position=${Position.Bottom} isConnectable=${false} className="hdl" />
+        ${next}
+        <div className="tier">${tier}</div>
+        <div className="ah">
+          <b>${a.name}</b><span className="at-key">@${a.key}</span>
+          <span className="chip"><i></i>${a.busy ? '작업 중' : '대기'}${a.busy && streamTitle ? ` → ${streamTitle}` : ''}</span>
+        </div>
+        <div className="rq"><em>요청</em>${a.prompt ?? '—'}</div>
+        <div className="now">
+          ${a.busy && a.running ? html`<span className="spin"></span>` : null}
+          <em>${a.busy ? '지금' : '마지막'}</em>${a.step ?? a.doing ?? '—'} <small>${ago(a.stepAt, now)}</small>
+        </div>
+        ${waiting}
+      </div>`;
+  }
+
+  function TaskNode({ data }) {
+    const { stream: s, selected, flash, working, sessions, onChat } = data;
+    const done = s.items.filter((it) => it.done).length;
+    const left = remainingOf(s);
+    return html`
+      <div className=${`task${selected ? ' sel' : ''}${flash ? ' flash' : ''}${working ? ' working' : ''}`}
+        style=${{ height: taskHeight(left.length, sessions.length) }}>
+        <${Handle} type="target" position=${Position.Top} isConnectable=${false} className="hdl" />
+        <${Handle} type="source" position=${Position.Bottom} isConnectable=${false} className="hdl" style=${{ left: 12 }} />
+        <${Handle} type="target" position=${Position.Left} id="in" isConnectable=${false} className="hdl" style=${{ top: 38 }} />
+        <${Handle} type="source" position=${Position.Right} id="next" isConnectable=${false} className="hdl" style=${{ top: 38 }} />
+        <${Handle} type="source" position=${Position.Top} id="loop-out" isConnectable=${false} className="hdl" style=${{ left: '25%' }} />
+        <${Handle} type="target" position=${Position.Top} id="loop-in" isConnectable=${false} className="hdl" style=${{ left: '75%' }} />
+        <div className="tier">${data.tier}</div>
+        <div className="h"><b>${s.title}</b>${s.ticket ? html`<span>${s.ticket}</span>` : null}</div>
+        <div className="p" data-hint=${hint(`진행 ${done} / ${s.items.length}`, '이 작업 세션의 할 일 완료 수(자동 판정 포함)', left.length ? `주황 ○: 결과물로 이어지지 않는 남은 일 ${left.length}건` : null)}>
+          <div className="bar"><i style=${{ width: `${s.items.length ? (done / s.items.length) * 100 : 0}%` }}></i></div>${done} / ${s.items.length}</div>
+        ${left.length
+          ? html`<ul>${left.map((it) => html`<li key=${it.id}
+              data-hint=${hint(`#${it.no} ${it.text}`, '남은 일 — 결과물로 이어지지 않는 미완료 할 일', it.who ? `담당: ${WHO[it.who]} — ${WHO_HINT[it.who]}` : null)}>#${it.no} ${it.text}</li>`)}</ul>`
+          : null}
+        ${sessions.length
+          ? html`<div className="sess">
+              ${sessions.map((x) => html`
+                <div key=${x.key} className=${`${x.busy ? 'on' : ''}${x.chatId ? ' click' : ''}`} data-hint=${x.hint}
+                  onClick=${(e) => { if (!x.chatId) return; e.stopPropagation(); onChat(x.chatId); }}>
+                  <i></i><span>${x.atKey ? html`<b className="at-key">@${x.atKey}</b> ` : null}${x.label} · ${x.busy ? x.step ?? '작업 중' : '대기'}</span>
+                </div>`)}
+            </div>`
+          : null}
+      </div>`;
+  }
+
+  function OutNode({ data }) {
+    const { out: o, flash, working, hint: tip } = data;
+    const cls = `out nodrag nopan${o.done ? '' : ' wait'}${flash ? ' flash' : ''}${working ? ' working' : ''}`;
+    const sub = o.links
+      ? html`<small>${o.links.map(([label, url], i) => html`<span key=${url}>${i ? ' · ' : ''}<a href=${url} target="_blank" rel="noreferrer">${label}</a></span>`)}</small>`
+      : html`<small>${o.live ?? o.desc ?? ''}</small>`;
+    const inner = html`
+      <${Handle} type="target" position=${Position.Left} isConnectable=${false} className="hdl" style=${{ left: -1 }} />
+      <span className="ic">${fileIcon}</span>
+      <b>${o.name}</b>
+      <span className="st">${o.done ? '' : '대기'}</span>
+      ${sub}`;
+    return o.url && !o.links
+      ? html`<a className=${cls} href=${o.url} target="_blank" rel="noreferrer" data-hint=${tip}>${inner}</a>`
+      : html`<div className=${cls} data-hint=${tip}>${inner}</div>`;
+  }
+
+  function FlowEdge({ id, sourceX, sourceY, targetX, targetY, sourcePosition, targetPosition, style, data, markerEnd }) {
+    const [d, labelX, labelY] = getSmoothStepPath({ sourceX, sourceY, sourcePosition, targetX, targetY, targetPosition, borderRadius: 10, offset: data?.offset });
+    return html`
+      <${BaseEdge} id=${id} path=${d} style=${style} markerEnd=${markerEnd}
+        label=${data?.label} labelX=${labelX} labelY=${labelY} labelShowBg=${true}
+        labelStyle=${{ fill: style?.stroke, fontSize: 11, fontWeight: 700 }} labelBgStyle=${{ fill: 'var(--card)' }} labelBgPadding=${[5, 2]} labelBgBorderRadius=${4} />
+      ${data?.active
+        ? [0, 0.55, 1.1].map((begin) => html`
+            <circle key=${begin} r="4" fill=${AGENT_COLOR}>
+              <animateMotion dur="1.65s" begin=${`${begin}s`} repeatCount="indefinite" path=${d} />
+            </circle>`)
+        : null}`;
+  }
+
+  const nodeTypes = { lead: LeadNode, task: TaskNode, out: OutNode };
+  const edgeTypes = { flow: FlowEdge };
+
+  const edgeStyle = (active, done = true) =>
+    active
+      ? { stroke: AGENT_COLOR, strokeWidth: 2.2 }
+      : done ? { stroke: '#94a3b8', strokeWidth: 1.4 } : { stroke: '#ea580c', strokeWidth: 1.6, strokeDasharray: '5 4' };
+
+  const STARTING_MS = 3 * 60 * 1000;
+  const startingDispatches = (state) =>
+    (state.dispatches ?? []).filter((d) => !d.sessionId && Date.now() - new Date(d.at).getTime() < STARTING_MS);
+
+  const latestDispatch = (state, itemId) =>
+    [...(state.dispatches ?? [])].reverse().find((d) => d.itemId === itemId && !['canceled', 'superseded'].includes(d.status));
+
+  const dispatchState = (state, itemId) => {
+    const it = state.streams.flatMap((s) => s.items).find((x) => x.id === itemId);
+    if (!it || it.done) return null;
+    const d = latestDispatch(state, itemId);
+    if (!d) return null;
+    if (d.mode === 'apply' || d.status === 'approved') return 'applying';
+    return d.status === 'review' ? 'review' : 'drafting';
+  };
+
+  const reviewIdOf = (state, itemId) => {
+    const d = latestDispatch(state, itemId);
+    return d?.status === 'review' ? d.id : null;
+  };
+
+  // 상태 태그 호버 문구(data-hint). 첫 줄은 태그 이름, 다음 줄부터 뜻·판정 근거. 뜻은 references/status-schema.md·operations.md 정의를 따른다.
+  const hint = (...lines) => lines.filter(Boolean).join('\n');
+  const prKey = (pr) => (pr.state === 'MERGED' ? 'merged' : pr.state === 'CLOSED' ? 'closed' : pr.isDraft ? 'draft' : 'open');
+  const PR_KO = { merged: '병합', closed: '닫힘', draft: '초안', open: '열림' };
+  const autoPrName = (auto) => `${auto.repo ? `${auto.repo.split('/')[1]} ` : ''}#${auto.pr}`;
+  const PR_HINT = { merged: '대상 브랜치에 병합됨', closed: '병합하지 않고 닫힘', draft: 'Draft — 아직 리뷰 요청 전', open: '리뷰·병합을 기다리는 중' };
+  const REVIEW_HINT = { APPROVED: '병합에 필요한 리뷰 승인을 받음', CHANGES_REQUESTED: '리뷰어가 수정을 요청함', REVIEW_REQUIRED: '병합에 필요한 리뷰 승인이 아직 없음' };
+  const WHO_HINT = {
+    approve: '커밋·push·외부 전송 등 사용자 승인을 기다리는 남은 일',
+    ext: '다른 사람·팀의 확인이나 답을 기다리는 남은 일',
+    me: '사용자가 직접 할 남은 일',
+    plan: '아직 시작하지 않은 예정된 일',
+  };
+  const RUN_HINT = {
+    drafting: ['변경안 작성 중', '작업 세션이 drafts/ 에 변경안만 쓰는 중 — 실제 반영 없음'],
+    review: ['검토 대기', '변경안(manifest.json) 작성 끝 — 「변경 검토」에서 diff 확인 후 적용'],
+    applying: ['적용 중', '승인된 변경만 반영하는 적용 세션이 도는 중 — 끝나면 할 일 완료 처리'],
+  };
+  const SRC_HINT = {
+    file: hint('위키', 'docs.root 아래 마크다운 — 3초마다 확인해 직전 스냅숏과 diff'),
+    'pr-body': hint('PR 본문', '연결된 PR 본문 — 1분마다 확인해 직전 스냅숏과 diff'),
+  };
+  const KIND_HINT = {
+    'pr-body': hint('PR 본문', '적용하면 GitHub PR 본문을 이 내용으로 바꿈(외부 반영)'),
+    file: hint('파일', '적용하면 이 경로의 로컬 파일을 바꿈'),
+    message: hint('보낼 메시지', '적용하면 대상(Slack 스레드·사람·Jira)에 보냄(외부 반영)'),
+    note: hint('기타 동작', '파일로 보여 줄 수 없는 동작(Jira 상태 변경 등)'),
+  };
+
+  const READONLY_HINT = hint('읽기 전용', '이 세션의 Orca 채팅·터미널을 찾지 못해 보낼 수 없음 — 대화 보기만 가능');
+
+  const whoHint = (who) => hint(WHO[who], WHO_HINT[who], '할 일 담당 태그(status.json who)');
+  const prStateHint = (pr) => hint(
+    PR_KO[prKey(pr)],
+    PR_HINT[prKey(pr)],
+    `GitHub PR #${pr.number} ${pr.state.toLowerCase()}${prKey(pr) === 'draft' ? ' · draft' : ''}${pr.state === 'MERGED' ? ` ${kst(pr.mergedAt)}` : pr.updatedAt ? ` · 갱신 ${kst(pr.updatedAt)}` : ''}`,
+  );
+  const reviewHint = (d) => hint(REVIEW[d], REVIEW_HINT[d], `GitHub reviewDecision ${d}`);
+  const checksHint = (c) => hint(`체크 ${c.pass}/${c.total}`, 'GitHub 상태 체크 중 통과(성공·중립·건너뜀) 수 / 전체', c.failing.length ? `실패: ${c.failing.join(', ')}` : '실패 없음');
+  const sessionHint = (a, extra) => hint(
+    a.busy ? '작업 중' : '대기',
+    a.busy ? 'Claude 세션이 요청을 처리하는 중' : '세션은 살아 있고 다음 요청을 기다리는 중',
+    `근거: ~/.claude/sessions 세션 상태${a.statusAt ? ` · ${kst(a.statusAt)}부터` : ''}`,
+    a.step ? `${a.busy ? '지금' : '마지막'} 단계: ${a.step}` : null,
+    extra,
+  );
+  const runHint = (state, itemId, run) => {
+    const d = latestDispatch(state, itemId);
+    return hint(...RUN_HINT[run], d ? `시작 ${kst(d.at)}${d.readyAt ? ` · 변경안 ${kst(d.readyAt)}` : ''}` : null);
+  };
+  const autoHint = (state, auto, done) => {
+    const pr = auto.pr ? state.github?.prs?.[`${auto.repo ?? state.repo}#${auto.pr}`] : null;
+    return hint(
+      '자동 판정',
+      'GitHub에서 1분마다 확인 — 화면에서 체크 불가',
+      auto.pr ? `기준: PR ${autoPrName(auto)} ${auto.merged ? '병합' : '열림 또는 병합'} — 지금 ${pr ? `${PR_KO[prKey(pr)]}${pr.state === 'MERGED' ? ` ${kst(pr.mergedAt)}` : ''}` : '정보 없음'}` : null,
+      auto.release ? `기준: 배포 태그 ${auto.release} — ${done ? '생성됨' : '아직 없음'}` : null,
+    );
+  };
+  const doneHint = (it) => (it.done
+    ? hint('완료', it.isAuto ? 'GitHub 자동 판정으로 완료' : it.doneAt ? `${kst(it.doneAt)} 완료 처리(대시보드·API)` : '상태 파일에 완료로 표시됨')
+    : hint('남음', it.isAuto ? 'GitHub 자동 판정 조건이 아직 안 맞음' : '아직 완료되지 않은 할 일 — 완료 처리는 할 일 팝업에서'));
+  const outHint = (id, o, items) => {
+    const linked = items.filter((it) => it.out === id);
+    const left = linked.filter((it) => !it.done);
+    const nums = (list) => list.map((it) => `#${it.no}`).join('·');
+    return hint(
+      o.done ? '나옴' : '대기',
+      o.done ? '결과물이 만들어짐' : '아직 안 나온 결과물(주황)',
+      o.auto?.pr ? `자동 판정: PR ${autoPrName(o.auto)} ${o.auto.merged ? '병합되면' : '열려 있거나 병합되면'} 나옴 — 지금 ${o.live ?? '정보 없음'}`
+        : o.auto?.release ? `자동 판정: 배포 태그 ${o.auto.release} 가 생기면 나옴 — ${o.live ?? '정보 없음'}`
+        : linked.length ? (left.length ? `연결된 할 일 ${nums(left)} 미완료` : `연결된 할 일 ${nums(linked)} 모두 완료`)
+        : o.done ? '상태 파일에 완료로 표시됨' : '연결된 할 일·자동 판정 없음 — 상태 파일에 완료 표시 없음',
+      o.auto?.vaultLog && o.live ? `진행 현황 문서 기록 ${o.live}` : null,
+    );
+  };
+
+
+  const nextItem = (state) => {
+    for (const s of state.streams) {
+      for (const it of s.items) {
+        if (!it.done && !it.isAuto && !dispatchState(state, it.id)) return { stream: s, item: it };
+      }
+    }
+    return null;
+  };
+
+  function buildGraph(state, selected, flashIds, onChat) {
+    const nodes = [];
+    const edges = [];
+    const agents = state.agents?.list ?? [];
+    const lead = agents.find((a) => a.role === 'lead') ?? null;
+    const workers = agents.filter((a) => a.role !== 'lead');
+    const items = Object.fromEntries(state.streams.flatMap((s) => s.items.map((it) => [it.id, it])));
+    // status.json flow: "pipeline" 이면 작업 세션(또는 stages)을 단계로 보고 리드 → 단계들을 한 줄로 왼쪽→오른쪽 화살표로 잇는다.
+    // lead: true 인 단계(Initial)는 리드 노드가 맡아 그 남은 일을 리드 안에 보이고, loopTo 가 있는 단계는 되돌아갈 단계로 루프 화살표를 위쪽에 그린다.
+    const pipeline = state.flow === 'pipeline';
+    const streams = flowStreams(state);
+    const where = (streamId, itemId) => (staged(state) ? stageOf(state, items[itemId]) : streamId);
+    const starting = startingDispatches(state);
+    const active = [...agents.filter((a) => a.busy && a.stream), ...starting.map((d) => ({ stream: d.stream, item: d.itemId }))];
+    const activeStreams = new Set(active.map((a) => where(a.stream, a.item)));
+    const activeOuts = new Set(active.map((a) => items[a.item]?.out).filter(Boolean));
+    const leadStream = pipeline ? streams.find((s) => s.lead) ?? null : null;
+    const row = streams.filter((s) => s !== leadStream);
+    const n = row.length;
+    const gap = pipeline ? PIPE_GAP : COL_GAP;
+    const x0 = pipeline ? PIPE_LEAD_W + gap : 0;
+    const rowY = pipeline ? PIPE_Y : STREAM_Y;
+    const width = x0 + n * CW + (n - 1) * gap;
+    const initial = leadStream ? leadStream.items.filter((it) => !it.done) : [];
+
+    nodes.push({
+      id: 'lead', type: 'lead', position: pipeline ? { x: 0, y: rowY } : { x: width / 2 - LEAD_W / 2, y: 0 },
+      data: {
+        lead, onChat, streamTitle: state.streams.find((s) => s.id === lead?.stream)?.title,
+        ...(pipeline ? { stage: leadStream?.title ?? 'Initial', initial } : {}),
+      },
+      draggable: false, selectable: false,
+    });
+
+    let bottom = pipeline ? rowY + leadHeight(initial.length) : LEAD_H;
+    row.forEach((s, i) => {
+      const x = x0 + i * (CW + gap);
+      const sessions = [
+        ...workers.filter((w) => where(w.stream, w.item) === s.id).map((w) => ({
+          key: w.id, chatId: w.id, atKey: w.key, label: w.label, busy: w.busy, step: w.step,
+          hint: sessionHint(w, hint(w.autoReclaim ? '대시보드가 띄운 세션 — 작업이 끝나면 자동 회수' : null, '눌러서 채팅')),
+        })),
+        ...starting.filter((d) => where(d.stream, d.itemId) === s.id).map((d) => ({
+          key: d.id, label: '작업 세션', busy: true, step: '시작 중',
+          hint: hint('시작 중', '대시보드가 작업 세션을 띄움 — 세션 파일이 잡히기 전(최대 3분)', `#${items[d.itemId]?.no ?? ''} ${d.text}`, `요청 ${kst(d.at)}`),
+        })),
+        ...(state.dispatches ?? []).filter((d) => where(d.stream, d.itemId) === s.id && d.status === 'review' && dispatchState(state, d.itemId) === 'review')
+          .map((d) => ({ key: `rv-${d.id}`, label: '변경안', busy: false, step: `검토 대기 — ${d.text}`, hint: runHint(state, d.itemId, 'review') })),
+      ];
+      if (lead?.busy && lead.stream && where(lead.stream, lead.item) === s.id) {
+        sessions.unshift({ key: 'lead', chatId: lead.id, atKey: lead.key, label: '리드 세션', busy: true, step: lead.step, hint: sessionHint(lead, '눌러서 채팅') });
+      }
+      const working = activeStreams.has(s.id);
+      const th = taskHeight(remainingOf(s).length, sessions.length);
+      nodes.push({
+        id: `t-${s.id}`, type: 'task', position: { x, y: rowY },
+        data: { stream: s, tier: pipeline ? `단계 ${i + (leadStream ? 2 : 1)}` : '작업 세션', selected: selected === s.id, flash: flashIds.has(`t-${s.id}`), working, sessions, onChat },
+        draggable: false, selectable: false,
+      });
+      if (!pipeline) {
+        edges.push({
+          id: `l-${s.id}`, source: 'lead', target: `t-${s.id}`, type: 'flow',
+          data: { active: working }, zIndex: working ? 5 : 0, style: edgeStyle(working),
+        });
+      }
+      let y = rowY + th + OUT_TOP;
+      for (const id of s.outs) {
+        const o = state.outputs[id];
+        const hot = working && activeOuts.has(id);
+        nodes.push({
+          id: `o-${s.id}-${id}`, type: 'out', position: { x: x + OUT_INDENT, y },
+          data: { out: o, flash: flashIds.has(`o-${id}`), working: hot, hint: outHint(id, o, Object.values(items)) }, draggable: false, selectable: false,
+        });
+        edges.push({
+          id: `e-${s.id}-${id}`, source: `t-${s.id}`, target: `o-${s.id}-${id}`, type: 'flow',
+          data: { active: hot }, zIndex: hot ? 5 : 0, style: edgeStyle(hot, o.done),
+        });
+        y += OUT_H + OUT_GAP;
+      }
+      bottom = Math.max(bottom, y - OUT_GAP, rowY + th);
+    });
+    if (pipeline) {
+      const ids = new Set(row.map((s) => s.id));
+      const chain = ['lead', ...row.map((s) => `t-${s.id}`)];
+      chain.slice(1).forEach((target, i) => {
+        const hot = activeStreams.has(target.slice(2));
+        edges.push({
+          id: `p-${chain[i]}`, source: chain[i], sourceHandle: 'next', target, targetHandle: 'in', type: 'flow',
+          data: { active: hot }, zIndex: hot ? 5 : 0, style: hot ? edgeStyle(true) : { stroke: '#64748b', strokeWidth: 1.8 },
+          markerEnd: { type: MarkerType.ArrowClosed, color: hot ? AGENT_COLOR : '#64748b' },
+        });
+      });
+      const fails = (state.cycles ?? []).filter((c) => c.result === 'fail').length;
+      for (const s of row.filter((x) => x.loopTo && ids.has(x.loopTo))) {
+        edges.push({
+          id: `r-${s.id}`, source: `t-${s.id}`, sourceHandle: 'loop-out', target: `t-${s.loopTo}`, targetHandle: 'loop-in', type: 'flow',
+          data: { offset: LOOP_H, label: `${s.loopLabel ?? '반복'}${fails ? ` · ${fails}회` : ''}` },
+          style: { stroke: '#7c3aed', strokeWidth: 1.8, strokeDasharray: '6 4' }, markerEnd: { type: MarkerType.ArrowClosed, color: '#7c3aed' },
+        });
+      }
+    }
+    // 사이클 애니메이션이 지나갈 단계 좌표(흐름 좌표계). 루프는 loopTo 단계 → … → loopTo 를 가진 단계, 통과하면 그 다음 단계
+    let anchors = null;
+    if (pipeline) {
+      const at = Object.fromEntries(row.map((s, i) => [s.id, { x: x0 + i * (CW + gap) + CW / 2, y: rowY + 38 }]));
+      const back = row.find((s) => s.loopTo && at[s.loopTo]);
+      if (back) {
+        const from = row.findIndex((s) => s.id === back.loopTo);
+        const to = row.indexOf(back);
+        anchors = { at, loop: row.slice(from, to + 1).map((s) => s.id), after: row[to + 1]?.id ?? null, top: rowY - LOOP_H };
+      }
+    }
+    return { nodes, edges, width, height: bottom, anchors };
+  }
+
+  // 작업 과정 애니메이션. 재생: 최근 사이클마다 토큰이 Plan → Build → Verify 를 지나 실패면 루프 화살표를 따라 Plan 으로, 통과면 다음 단계로.
+  // 재생 중이 아니면 진행 중(result: doing) 사이클의 현재 단계(phase)에 토큰이 맥박처럼 깜빡인다.
+  const STEP_MS = 520;
+  const REPLAY_N = 8;
+
+  const cycleWaypoints = (a, c) => {
+    const pts = a.loop.map((id) => a.at[id]);
+    const first = pts[0];
+    const last = pts.at(-1);
+    if (c.result === 'fail') return [...pts, { x: last.x, y: a.top }, { x: first.x, y: a.top }, first];
+    if (c.result === 'pass' && a.after) return [...pts, a.at[a.after]];
+    return pts;
+  };
+
+  function CycleToken({ anchors, cycles, items, play, onDone }) {
+    const [tok, setTok] = useState(null);
+    useEffect(() => {
+      if (!play) {
+        setTok(null);
+        return undefined;
+      }
+      const timers = [];
+      let t = 0;
+      for (const c of cycles.slice(-REPLAY_N)) {
+        const it = items[c.item];
+        const label = `C${c.n}${it ? ` #${it.no}` : ''}`;
+        const pts = cycleWaypoints(anchors, c);
+        pts.forEach((p, i) => {
+          const end = i === pts.length - 1;
+          const cls = end ? (c.result === 'fail' ? 'fail' : c.result === 'pass' ? 'pass' : '') : '';
+          const text = end ? `${label} ${c.result === 'fail' ? '실패 → 다시 계획' : c.result === 'pass' ? '통과' : '진행 중'}` : label;
+          timers.push(setTimeout(() => setTok({ ...p, cls, text }), t));
+          t += STEP_MS;
+        });
+        t += 500;
+      }
+      timers.push(setTimeout(onDone, t));
+      return () => timers.forEach(clearTimeout);
+    }, [play]);
+    const live = cycles.at(-1);
+    const shown = tok ?? (live?.result === 'doing' && anchors.at[live.phase ?? anchors.loop[1] ?? anchors.loop[0]]
+      ? { ...anchors.at[live.phase ?? anchors.loop[1] ?? anchors.loop[0]], cls: 'live', text: `C${live.n}${items[live.item] ? ` #${items[live.item].no}` : ''} 진행 중` }
+      : null);
+    if (!shown) return null;
+    return html`
+      <${ViewportPortal}>
+        <div className=${`token ${shown.cls}`} style=${{ transform: `translate(${shown.x - 7}px, ${shown.y - 7}px)` }}>
+          <i></i><span>${shown.text}</span>
+        </div>
+      <//>`;
+  }
+
+  function Flow({ state, selected, onSelect, flashIds, onChat }) {
+    const graph = useMemo(() => buildGraph(state, selected, flashIds, onChat), [state, selected, flashIds]);
+    const [nodes, setNodes, onNodesChange] = useNodesState(graph.nodes);
+    const [play, setPlay] = useState(false);
+    const cycles = state.cycles ?? [];
+    const items = useMemo(() => Object.fromEntries(state.streams.flatMap((s) => s.items).map((it) => [it.id, it])), [state]);
+    const { fitView } = useReactFlow();
+    const boxRef = useRef(null);
+    const [height, setHeight] = useState(null);
+    const laidHeight = useRef(null);
+    const relayout = useRef(null);
+    relayout.current = () => {
+      const scale = Math.min(1, ((boxRef.current?.clientWidth ?? graph.width) - 32) / graph.width);
+      setHeight(Math.max(360, Math.round(graph.height * scale + 48)));
+      setTimeout(() => fitView({ padding: 0.03, maxZoom: 1 }), 250);
+    };
+
+    useEffect(() => setNodes(graph.nodes), [graph]);
+    useLayoutEffect(() => {
+      if (laidHeight.current === graph.height) return;
+      laidHeight.current = graph.height;
+      relayout.current();
+    }, [graph.height]);
+    useEffect(() => {
+      const onResize = () => relayout.current();
+      window.addEventListener('resize', onResize);
+      return () => window.removeEventListener('resize', onResize);
+    }, []);
+
+    return html`
+      <div className="flow" ref=${boxRef} style=${{ height: height ?? 480 }}>
+        <${ReactFlow}
+          nodes=${nodes}
+          edges=${graph.edges}
+          onNodesChange=${onNodesChange}
+          nodeTypes=${nodeTypes}
+          edgeTypes=${edgeTypes}
+          fitView
+          fitViewOptions=${{ padding: 0.03, maxZoom: 1 }}
+          onNodeClick=${(_, n) => n.type === 'task' && onSelect(n.id.slice(2))}
+          nodesDraggable=${false}
+          nodesConnectable=${false}
+          elementsSelectable=${false}
+          panOnDrag=${false}
+          panOnScroll=${false}
+          zoomOnScroll=${false}
+          zoomOnPinch=${false}
+          zoomOnDoubleClick=${false}
+          preventScrolling=${false}
+          minZoom=${0.3}
+          proOptions=${{ hideAttribution: true }}
+        >
+          <${Background} gap=${20} size=${1} />
+          ${graph.anchors && cycles.length
+            ? html`<${CycleToken} anchors=${graph.anchors} cycles=${cycles} items=${items} play=${play} onDone=${() => setPlay(false)} />`
+            : null}
+        <//>
+        ${graph.anchors && cycles.length
+          ? html`<button type="button" className="replay" onClick=${() => setPlay(!play)}
+              data-hint=${hint('사이클 재생', `최근 ${Math.min(REPLAY_N, cycles.length)}번의 사이클을 Plan → Build → Verify 순서로 다시 보여 줌`, '실패는 루프 화살표로 Plan 에, 통과는 다음 단계로')}>
+              ${play ? '■ 멈춤' : '▶ 사이클 재생'}</button>`
+          : null}
+      </div>`;
+  }
+
+  function ItemRow({ state, it, group, onOpen, run, onRun, onPreview, onReview, reviewId }) {
+    return html`
+      <li className=${it.done ? 'on' : ''}>
+        <button type="button" className="row-main" onClick=${() => onOpen(it.id)} title="눌러서 할 일 열기(완료 처리는 팝업에서)">
+          <span className="key">#${it.no}</span>
+          <span><span className="t">${it.text}</span>${group ? html` <span className="grp">${group}</span>` : null}</span>
+        </button>
+        ${it.isAuto ? html`<span className="badge auto" data-hint=${autoHint(state, it.auto, it.done)}>자동</span>` : null}
+        ${!it.done && it.who ? html`<span className=${`badge w-${it.who}`} data-hint=${whoHint(it.who)}>${WHO[it.who]}</span>` : null}
+        ${it.refs?.length ? html`<button type="button" className="pv" onClick=${() => onPreview(it.id)}>프리뷰</button>` : null}
+        ${!it.done && !it.isAuto
+          ? run === 'review'
+            ? html`<button type="button" className="rv" data-hint=${runHint(state, it.id, 'review')} onClick=${() => onReview(reviewId)}>변경 검토</button>`
+            : run
+              ? html`<span className="badge running" data-hint=${runHint(state, it.id, run)}>${{ drafting: '변경안 작성 중', applying: '적용 중' }[run]}</span>`
+              : html`<button type="button" className="go" onClick=${() => onRun(it.id)}>진행</button>`
+          : null}
+      </li>`;
+  }
+
+  // 남은 일은 원래 순서, 완료는 뒤로 보내 최근 완료부터. 대시보드에서 체크한 적 없는 이전 완료는 접어 둔다.
+  const orderItems = (pairs) => {
+    const done = pairs.filter(([, it]) => it.done).sort((a, b) => String(b[1].doneAt ?? '').localeCompare(String(a[1].doneAt ?? '')));
+    return {
+      pending: pairs.filter(([, it]) => !it.done),
+      recent: done.filter(([, it]) => it.doneAt),
+      older: done.filter(([, it]) => !it.doneAt),
+    };
+  };
+
+  function ItemsPanel({ state, selected, onSelect, onOpen, onRun, onPreview, onReview }) {
+    const [showOlder, setShowOlder] = useState(false);
+    const s = flowStreams(state).find((x) => x.id === selected) ?? state.streams.find((x) => x.id === selected);
+    const pairs = s ? s.items.map((it) => [s, it]) : state.streams.flatMap((x) => x.items.map((it) => [x, it]));
+    const { pending, recent, older } = orderItems(pairs);
+    const row = ([x, it]) => html`<${ItemRow} key=${it.id} state=${state} it=${it} group=${s ? null : x.title} onOpen=${onOpen}
+      run=${dispatchState(state, it.id)} onRun=${onRun} onPreview=${onPreview} onReview=${onReview} reviewId=${reviewIdOf(state, it.id)} />`;
+    const doneCount = recent.length + older.length;
+    return html`
+      <section className="panel">
+        <h2>
+          ${s ? s.title : '할 일'}
+          ${s?.ticket ? html`<a href=${JIRA + s.ticket} target="_blank" rel="noreferrer">${s.ticket}</a>` : null}
+          <small>남은 ${pending.length} · 완료 ${doneCount}${s ? '' : ' · 작업 카드를 누르면 세부 목록'}</small>
+          ${s ? html`<button type="button" onClick=${() => onSelect(null)}>전체 보기</button>` : null}
+        </h2>
+        <ul className="items">
+          ${pending.map(row)}
+          ${doneCount ? html`<li key="sep" className="sep" data-hint=${hint('완료', '최근 완료 순 — 대시보드·API 로 완료 처리한 시각 기준', '그 전에 끝난 일은 「이전 완료」로 접힘')}>완료</li>` : null}
+          ${recent.map(row)}
+          ${older.length
+            ? showOlder
+              ? older.map(row)
+              : html`<li key="more" className="sep more" onClick=${() => setShowOlder(true)}>이전 완료 ${older.length}건 보기</li>`
+            : null}
+          ${older.length && showOlder ? html`<li key="less" className="sep more" onClick=${() => setShowOlder(false)}>이전 완료 접기</li>` : null}
+        </ul>
+      </section>`;
+  }
+
+
+  function GitHubPanel({ github }) {
+    const prs = Object.values(github.prs ?? {});
+    const multiRepo = new Set(prs.map((pr) => pr.repo)).size > 1;
+    const stateLabel = { merged: 'Merged', closed: 'Closed', draft: 'Draft', open: 'Open' };
+    return html`
+      <section className="panel">
+        <h2>GitHub <small>1분마다 확인 · ${kst(github.checkedAt)}</small></h2>
+        ${github.error ? html`<div className="err">${github.error}</div>` : null}
+        ${prs.map((pr) => html`
+          <div className="pr" key=${pr.url}>
+            <div className="line">
+              <a href=${pr.url} target="_blank" rel="noreferrer"><b>${multiRepo ? `${pr.repo?.split('/')[1]} ` : ''}#${pr.number}</b></a>
+              <span className=${`state s-${prKey(pr)}`} data-hint=${prStateHint(pr)}>${stateLabel[prKey(pr)]}</span>
+              ${REVIEW[pr.reviewDecision] ? html`<span className="s" data-hint=${reviewHint(pr.reviewDecision)}>${REVIEW[pr.reviewDecision]}</span>` : null}
+            </div>
+            <div className="title">${pr.title}</div>
+            <div className="meta">
+              <span data-hint=${checksHint(pr.checks)}>체크 ${pr.checks.pass}/${pr.checks.total}</span>
+              ${pr.checks.failing.length ? html` · <span className="fail">실패 ${pr.checks.failing.join(', ')}</span>` : null}
+              · 커밋 ${pr.commits} · ${pr.head} → ${pr.base}
+              · ${pr.state === 'MERGED' ? `병합 ${kst(pr.mergedAt)}` : `갱신 ${kst(pr.updatedAt)}`}
+            </div>
+          </div>`)}
+        ${github.releases?.[0]
+          ? html`<div className="meta s" style=${{ marginTop: 8 }}
+              data-hint=${hint('최신 배포 태그', 'GitHub 릴리스 목록의 가장 최근 태그 — 1분마다 확인', 'auto.release 할 일·결과물은 이 목록에 태그가 생기면 완료')}>최신 배포 태그 ${github.releases[0].tagName} · ${kst(github.releases[0].publishedAt)}</div>`
+          : null}
+      </section>`;
+  }
+
+  // 사이클 = Plan → Build → Verify 한 바퀴. 리드가 status.json cycles 에 남긴다(형식은 status-schema.md).
+  const CYCLE_RESULT = { pass: ['통과', 'ok'], fail: ['실패 → 다시 계획', 'fail'], doing: ['진행 중', 'doing'] };
+
+  function CyclePanel({ state }) {
+    const [all, setAll] = useState(false);
+    const items = Object.fromEntries(state.streams.flatMap((s) => s.items).map((it) => [it.id, it]));
+    const list = [...state.cycles].reverse();
+    const shown = all ? list : list.slice(0, 6);
+    const fails = list.filter((c) => c.result === 'fail').length;
+    return html`
+      <section className="panel">
+        <h2>사이클 <small>Plan → Build → Verify 한 바퀴씩 · ${list.length}번 중 다시 계획 ${fails}번</small></h2>
+        <ul className="cycles">
+          ${shown.map((c) => {
+            const it = items[c.item];
+            const [label, cls] = CYCLE_RESULT[c.result] ?? [c.result ?? '—', ''];
+            return html`
+              <li key=${c.n} data-hint=${hint(
+                `C${c.n} · ${it ? `#${it.no} ${it.text}` : c.item ?? ''}`,
+                c.plan ? `Plan: ${c.plan}` : null, c.build ? `Build: ${c.build}` : null, c.verify ? `Verify: ${c.verify}` : null,
+                c.at ? kst(c.at) : null,
+              )}>
+                <span className="n">C${c.n}</span>
+                <span className="no">${it ? `#${it.no}` : ''}</span>
+                <span className=${`r ${cls}`}>${label}</span>
+                <span className="t">${c.verify ?? c.build ?? c.plan ?? ''}</span>
+              </li>`;
+          })}
+          ${list.length > 6 ? html`<li className="more" onClick=${() => setAll(!all)}>${all ? '접기' : `외 ${list.length - 6}번 더 보기`}</li>` : null}
+        </ul>
+      </section>`;
+  }
+
+  function LogPanel({ vault }) {
+    return html`
+      <section className="panel">
+        <h2>진행 기록 <small>진행 현황 문서 변경 기록 · 최근 ${vault.rows.length}건</small></h2>
+        ${vault.error ? html`<div className="err">${vault.error}</div>` : null}
+        <ul className="log">
+          ${vault.rows.map((r) => html`
+            <li key=${r.n}>
+              <span className="n">#${r.n}</span>
+              <span className="c">${r.content}</span>
+              <span className="m">${r.when} · ${r.kind}${r.link ? html` · <a href=${r.link} target="_blank" rel="noreferrer" data-label=${r.content}>링크</a>` : null}</span>
+            </li>`)}
+        </ul>
+      </section>`;
+  }
+
+  DOMPurify.addHook('afterSanitizeAttributes', (node) => {
+    if (node.tagName === 'A') {
+      node.setAttribute('target', '_blank');
+      node.setAttribute('rel', 'noreferrer');
+    }
+  });
+  const md = (text) => ({ __html: DOMPurify.sanitize(marked.parse(text ?? '')) });
+  // 사용자·세션 메시지는 마크다운으로 렌더하지 않으므로 http(s) URL 만 링크로 바꾼다. 끝의 문장부호는 링크에서 뺀다.
+  const linkify = (text) => (text ?? '').split(/(https?:\/\/[^\s<>"'`]+)/g).flatMap((p, i) => {
+    if (i % 2 === 0) return p ? [p] : [];
+    const url = p.replace(/[.,;:!?)\]}'"」』>]+$/, '');
+    const a = html`<a key=${i} href=${url} target="_blank" rel="noreferrer">${url}</a>`;
+    return url === p ? [a] : [a, p.slice(url.length)];
+  });
+  const STATE_LABEL = { MERGED: 'Merged', CLOSED: 'Closed', OPEN: 'Open' };
+  const REVIEW_STATE = { APPROVED: '승인', CHANGES_REQUESTED: '변경 요청', COMMENTED: '코멘트', DISMISSED: '무효' };
+
+  function DiffView({ diff }) {
+    const rows = [];
+    let a = 0;
+    let b = 0;
+    diff.split('\n').forEach((line, i) => {
+      const h = line.match(/^@@ -(\d+)(?:,\d+)? \+(\d+)(?:,\d+)? @@(.*)$/);
+      if (h) {
+        a = Number(h[1]);
+        b = Number(h[2]);
+        rows.push(html`<div key=${i} className="hk">${line}</div>`);
+        return;
+      }
+      if (line.startsWith('\\')) return;
+      const sign = line[0] ?? ' ';
+      const text = line.slice(1);
+      const cls = sign === '+' ? 'ln add' : sign === '-' ? 'ln del' : 'ln';
+      const oldNo = sign === '+' ? '' : a++;
+      const newNo = sign === '-' ? '' : b++;
+      rows.push(html`<div key=${i} className=${cls}><span className="no">${oldNo}</span><span className="no">${newNo}</span><span className="sg">${sign === ' ' ? '' : sign}</span><span>${text}</span></div>`);
+    });
+    return html`<div className="diff">${rows}</div>`;
+  }
+
+  const SRC_LABEL = { file: '위키', 'pr-body': 'PR 본문' };
+
+  // 변경 하나를 한 줄로: 시각 · 문서 · 무엇이 바뀌었는지. 파일·줄 수·시점은 툴팁, 누르면 diff
+  function DocsPanel({ docs, onOpen }) {
+    const now = useNow();
+    const [all, setAll] = useState(false);
+    const list = [...(docs ?? [])].reverse();
+    const shown = all ? list : list.slice(0, 5);
+    return html`
+      <section className="panel">
+        <h2>문서 변경 <small>한 줄 요약 · 누르면 diff</small></h2>
+        ${list.length
+          ? html`<ul className="docs">
+              ${shown.map((d) => html`
+                <li key=${d.id} onClick=${() => onOpen(d.id)}
+                  data-hint=${hint(`${SRC_LABEL[d.source] ?? d.source} · ${d.label}`, d.summary || null, `${kst(d.at)} · ${ago(d.at, now)} · +${d.added} -${d.removed}줄`, '누르면 diff')}>
+                  <span className="m">${kst(d.at).slice(6)}</span>
+                  <span className="f"><span className="src">${SRC_LABEL[d.source] ?? d.source}</span>${d.label.split('/').pop().replace(/\.md$/, '')}</span>
+                  <span className="sum">${d.summary || `+${d.added} -${d.removed}줄`}</span>
+                </li>`)}
+              ${list.length > 5
+                ? html`<li className="more" onClick=${() => setAll(!all)}>${all ? '접기' : `외 ${list.length - 5}건 더 보기`}</li>`
+                : null}
+            </ul>`
+          : html`<p className="s">아직 변경 없음 — 문서가 바뀌면 여기에 쌓임</p>`}
+      </section>`;
+  }
+
+  function DiffModal({ id, onClose }) {
+    const [d, setD] = useState(null);
+    useEffect(() => {
+      fetch(`api/docs/${id}`).then((r) => r.json()).then(setD).catch(() => {});
+      const onKey = (e) => e.key === 'Escape' && onClose();
+      window.addEventListener('keydown', onKey);
+      return () => window.removeEventListener('keydown', onKey);
+    }, [id]);
+    return html`
+      <div className="modal-bg" onClick=${(e) => e.target === e.currentTarget && onClose()}>
+        <div className="modal wide" role="dialog" aria-modal="true" aria-labelledby="diff-title">
+          <h3 id="diff-title">${d?.label ?? '불러오는 중…'}</h3>
+          ${d
+            ? html`<div className="sub">
+                <span className="src" data-hint=${SRC_HINT[d.source]}>${SRC_LABEL[d.source] ?? d.source}</span>${kst(d.at)} ·
+                <span className="plus"> +${d.added}</span> <span className="minus">-${d.removed}</span>
+                ${d.link ? html` · <a href=${d.link} target="_blank" rel="noreferrer">원문 열기</a>` : null}
+              </div>
+              <${DiffView} diff=${d.diff} />`
+            : null}
+          <div className="acts"><button type="button" onClick=${onClose}>닫기</button></div>
+        </div>
+      </div>`;
+  }
+
+  function PrPreview({ r }) {
+    const d = r.data;
+    if (r.error) return html`<p className="err">${r.error}</p>`;
+    if (!d) return html`<p className="s">불러오는 중…</p>`;
+    const key = d.state === 'MERGED' ? 'merged' : d.state === 'CLOSED' ? 'closed' : d.isDraft ? 'draft' : 'open';
+    return html`
+      <div className="pvbox">
+        <div className="meta">
+          <a href=${d.url} target="_blank" rel="noreferrer"><b>${r.repo.split('/')[1]} #${d.number}</b></a>
+          <span className=${`state s-${key}`} data-hint=${prStateHint(d)}>${d.isDraft && d.state === 'OPEN' ? 'Draft' : STATE_LABEL[d.state]}</span>
+          ${REVIEW[d.reviewDecision] ? html`<span data-hint=${reviewHint(d.reviewDecision)}>${REVIEW[d.reviewDecision]}</span>` : null}
+          <span>${d.head} → ${d.base}</span>
+          <span>${d.mergedAt ? `병합 ${kst(d.mergedAt)}` : `갱신 ${kst(d.updatedAt)}`}</span>
+        </div>
+        <div><b>${d.title}</b></div>
+        <h4>본문</h4>
+        <div className="md" dangerouslySetInnerHTML=${md(d.body || '_본문 없음_')}></div>
+        ${d.reviews.length || d.comments.length || d.inline.length
+          ? html`<h4>리뷰·코멘트 (최근)</h4>
+              <ul className="cmts">
+                ${[...d.reviews.map((x) => ({ ...x, kind: REVIEW_STATE[x.state] ?? x.state })),
+                   ...d.inline.map((x) => ({ ...x, kind: `${x.path}:${x.line ?? ''}` })),
+                   ...d.comments.map((x) => ({ ...x, kind: '코멘트' }))]
+                  .sort((a, b) => String(a.at).localeCompare(String(b.at)))
+                  .map((x, i) => html`
+                    <li key=${i}>
+                      <div className="who">${x.author} · ${x.kind} · ${kst(x.at)}</div>
+                      ${x.body ? html`<div className="md" style=${{ maxHeight: 160 }} dangerouslySetInnerHTML=${md(x.body)}></div>` : null}
+                    </li>`)}
+              </ul>`
+          : null}
+        ${d.docs?.length
+          ? html`<h4>문서(.md) 변경 ${d.docs.length}</h4>
+              ${d.docs.map((f) => html`
+                <details key=${f.path} style=${{ marginBottom: 6 }}>
+                  <summary><b>${f.path}</b> <span className="plus">+${f.added}</span> <span className="minus">-${f.removed}</span></summary>
+                  <div style=${{ marginTop: 6 }}><${DiffView} diff=${f.diff} /></div>
+                </details>`)}`
+          : null}
+        <h4>커밋 ${d.commits.length} · 변경 파일 ${d.files.length}</h4>
+        <ul className="files">
+          ${d.commits.map((c) => html`<li key=${c.oid}>${c.oid} ${c.headline}</li>`)}
+        </ul>
+        <ul className="files" style=${{ marginTop: 6 }}>
+          ${d.files.map((f) => html`<li key=${f.path}><span className="a">+${f.additions}</span> <span className="d">-${f.deletions}</span> ${f.path}</li>`)}
+        </ul>
+      </div>`;
+  }
+
+  function SlackPreview({ r, onRefresh }) {
+    const msgs = r.data?.messages ?? [];
+    return html`
+      <div className="pvbox">
+        <div className="meta">
+          <a href=${r.url} target="_blank" rel="noreferrer"><b>${r.title}</b></a>
+          <span>${r.data ? `가져온 시각 ${kst(r.data.fetchedAt)}` : '아직 가져오지 않음'}</span>
+          ${r.refreshing ? html`<span><span className="spin"></span>Slack에서 가져오는 중(10~30초)</span>` : null}
+          <button type="button" className="pv" disabled=${r.refreshing} onClick=${onRefresh}>다시 가져오기</button>
+        </div>
+        ${r.error ? html`<p className="err">가져오기 실패: ${r.error}</p>` : null}
+        ${msgs.length
+          ? html`<ul className="cmts">
+              ${msgs.map((m, i) => html`
+                <li key=${i}>
+                  <div className="who">${m.author} · ${m.time}</div>
+                  <div className="txt">${m.text}</div>
+                </li>`)}
+            </ul>`
+          : null}
+      </div>`;
+  }
+
+  function PreviewPane({ itemId }) {
+    const [data, setData] = useState(null);
+    const [tab, setTab] = useState(0);
+    const load = () => fetch(`api/preview?item=${encodeURIComponent(itemId)}`).then((r) => r.json()).then(setData).catch(() => {});
+    useEffect(() => {
+      load();
+    }, [itemId]);
+    useEffect(() => {
+      if (!data?.refs?.some((r) => r.refreshing)) return;
+      const t = setTimeout(load, 3000);
+      return () => clearTimeout(t);
+    }, [data]);
+    if (!data) return html`<p className="s">프리뷰 불러오는 중…</p>`;
+    if (!data.refs.length) return html`<p className="s">연결된 PR·Slack 없음</p>`;
+    const r = data.refs[Math.min(tab, data.refs.length - 1)];
+    const label = (x) => (x.type === 'pr' ? `PR ${x.repo.split('/')[1]} #${x.number}` : x.type === 'slack' ? `Slack · ${x.title}` : x.title);
+    const refresh = () => post('api/preview/refresh', { itemId }).then((res) => res.json()).then(setData);
+    return html`
+      <div>
+        <div className="tabs" role="tablist">
+          ${data.refs.map((x, i) => html`<button key=${i} type="button" role="tab" aria-selected=${i === tab} onClick=${() => setTab(i)}>${label(x)}</button>`)}
+        </div>
+        ${r.type === 'pr' ? html`<${PrPreview} r=${r} />`
+          : r.type === 'slack' ? html`<${SlackPreview} r=${r} onRefresh=${refresh} />`
+          : html`<p className="s">미리보기를 지원하지 않는 링크 — <a href=${r.url} target="_blank" rel="noreferrer">${r.title} 열기</a></p>`}
+      </div>`;
+  }
+
+  // 팝업이 열려 있는 동안 ⌘/Ctrl+Enter 로 주 동작을 실행한다. 위에 뜬 창이 먼저 처리하면 전파를 막는다.
+  function useCmdEnter(handler) {
+    const ref = useRef(handler);
+    ref.current = handler;
+    useEffect(() => {
+      const onKey = (e) => {
+        if ((e.metaKey || e.ctrlKey) && e.key === 'Enter' && !e.isComposing) {
+          e.preventDefault();
+          ref.current();
+        }
+      };
+      window.addEventListener('keydown', onKey);
+      return () => window.removeEventListener('keydown', onKey);
+    }, []);
+  }
+
+  const kbd = html`<kbd className="ck">⌘↵</kbd>`;
+
+  function ItemModal({ state, itemId, onClose, onToggle, onRun, onPreview, onReview }) {
+    const found = state.streams.flatMap((s) => s.items.map((it) => ({ s, it }))).find((x) => x.it.id === itemId);
+    const [busy, setBusy] = useState(false);
+    const it = found?.it;
+    const run = it ? dispatchState(state, it.id) : null;
+    const toggle = async () => {
+      if (!it || it.isAuto || busy) return;
+      setBusy(true);
+      await onToggle(it.id, !it.done);
+      setBusy(false);
+      onClose();
+    };
+    useCmdEnter(toggle);
+    useEffect(() => {
+      const onKey = (e) => e.key === 'Escape' && onClose();
+      window.addEventListener('keydown', onKey);
+      return () => window.removeEventListener('keydown', onKey);
+    }, []);
+    if (!found) return null;
+    const ds = (state.dispatches ?? []).filter((d) => d.itemId === it.id);
+    return html`
+      <div className="modal-bg" onClick=${(e) => e.target === e.currentTarget && onClose()}>
+        <div className="modal" role="dialog" aria-modal="true" aria-labelledby="item-title">
+          <h3 id="item-title">#${it.no} ${it.text}</h3>
+          <div className="sub">${found.s.title}${found.s.ticket ? ` · ${found.s.ticket}` : ''}</div>
+          <dl>
+            <dt>상태</dt>
+            <dd>
+              ${it.done
+                ? html`<b style=${{ color: 'var(--green)' }} data-hint=${doneHint(it)}>완료</b>${it.doneAt ? ` · ${kst(it.doneAt)}` : ''}`
+                : html`<b className="pending" data-hint=${doneHint(it)}>남음</b>`}
+              ${!it.done && it.who ? html` <span className=${`badge w-${it.who}`} data-hint=${whoHint(it.who)}>${WHO[it.who]}</span>` : null}
+              ${run ? html` <span className="badge running" data-hint=${runHint(state, it.id, run)}>${{ drafting: '변경안 작성 중', review: '검토 대기', applying: '적용 중' }[run]}</span>` : null}
+            </dd>
+            ${it.out ? html`<dt>결과물</dt><dd>${state.outputs[it.out]?.name ?? it.out}</dd>` : null}
+            ${ds.length ? html`<dt>실행 기록</dt><dd>${ds.map((d) => `${d.mode === 'apply' ? '적용' : '변경안'} ${kst(d.at)} · ${d.status}`).join(' / ')}</dd>` : null}
+          </dl>
+          ${it.isAuto ? html`<p className="warn">GitHub 상태로 자동 판정되는 할 일이라 직접 완료 처리할 수 없음</p>` : null}
+          <div className="acts">
+            <button type="button" onClick=${onClose}>닫기</button>
+            ${it.refs?.length ? html`<button type="button" onClick=${() => { onClose(); onPreview(it.id); }}>프리뷰</button>` : null}
+            ${run === 'review' ? html`<button type="button" onClick=${() => { onClose(); onReview(reviewIdOf(state, it.id)); }}>변경 검토</button>` : null}
+            ${!it.done && !it.isAuto && !run ? html`<button type="button" onClick=${() => { onClose(); onRun(it.id); }}>진행…</button>` : null}
+            ${it.isAuto
+              ? null
+              : html`<button type="button" className=${it.done ? 'warnbtn' : 'ok'} disabled=${busy} onClick=${toggle}>
+                  ${it.done ? '완료 취소' : '완료로 표시'}${kbd}</button>`}
+          </div>
+        </div>
+      </div>`;
+  }
+
+  function PreviewModal({ state, itemId, onClose, onRun }) {
+    const it = state.streams.flatMap((s) => s.items).find((x) => x.id === itemId);
+    useEffect(() => {
+      const onKey = (e) => e.key === 'Escape' && onClose();
+      window.addEventListener('keydown', onKey);
+      return () => window.removeEventListener('keydown', onKey);
+    }, []);
+    useCmdEnter(() => it && !it.done && !it.isAuto && onRun(itemId));
+    if (!it) return null;
+    return html`
+      <div className="modal-bg" onClick=${(e) => e.target === e.currentTarget && onClose()}>
+        <div className="modal wide" role="dialog" aria-modal="true" aria-labelledby="pv-title">
+          <h3 id="pv-title">#${it.no} ${it.text}</h3>
+          <div className="sub">관련 PR·Slack 내용 프리뷰</div>
+          <${PreviewPane} itemId=${itemId} />
+          <div className="acts">
+            <button type="button" onClick=${onClose}>닫기</button>
+            ${!it.done && !it.isAuto ? html`<button type="button" className="ok" onClick=${() => onRun(itemId)}>이 작업 진행…${kbd}</button>` : null}
+          </div>
+        </div>
+      </div>`;
+  }
+
+  function RunModal({ state, itemId, onClose, onDone }) {
+    const found = state.streams.flatMap((s) => s.items.map((it) => ({ s, it }))).find((x) => x.it.id === itemId);
+    const [preview, setPreview] = useState(null);
+    const [extra, setExtra] = useState('');
+    const [busy, setBusy] = useState(false);
+    const [error, setError] = useState('');
+    const areaRef = useRef(null);
+
+    useEffect(() => {
+      fetch(`api/dispatch/preview?item=${encodeURIComponent(itemId)}`).then((r) => r.json()).then(setPreview).catch(() => {});
+      areaRef.current?.focus();
+      const onKey = (e) => e.key === 'Escape' && onClose();
+      window.addEventListener('keydown', onKey);
+      return () => window.removeEventListener('keydown', onKey);
+    }, [itemId]);
+
+    const submitRef = useRef(() => {});
+    useCmdEnter(() => submitRef.current());
+    if (!found) return null;
+    const submit = async () => {
+      setBusy(true);
+      setError('');
+      const r = await post('api/dispatch', { itemId, extra });
+      const body = await r.json().catch(() => ({}));
+      setBusy(false);
+      if (!r.ok) return setError(body.error ?? '실행 실패');
+      onDone(`변경안 작성 시작 — ${found.it.text}`);
+    };
+    submitRef.current = () => !busy && submit();
+
+    return html`
+      <div className="modal-bg" onClick=${(e) => e.target === e.currentTarget && onClose()}>
+        <div className=${`modal${found.it.refs?.length ? ' wide' : ''}`} role="dialog" aria-modal="true" aria-labelledby="run-title">
+          <h3 id="run-title">변경안을 만들까요?</h3>
+          <div className="sub">새 작업 세션(Claude 채팅)이 바뀔 내용을 변경안으로만 만들고 멈춤. 실제 반영은 변경 내용을 검토한 뒤 「적용」을 눌러야 일어남</div>
+          <dl>
+            <dt>작업 세션</dt><dd>${found.s.title}${found.s.ticket ? ` · ${found.s.ticket}` : ''}</dd>
+            <dt>할 일</dt><dd><b>#${found.it.no} ${found.it.text}</b>${found.it.who ? html` <span className=${`badge w-${found.it.who}`}>${WHO[found.it.who]}</span>` : null}</dd>
+            <dt>실행 위치</dt><dd>${preview?.worktree ?? found.s.worktree ?? '—'}</dd>
+          </dl>
+          ${found.it.refs?.length
+            ? html`<details open>
+                <summary>관련 내용 프리뷰</summary>
+                <div style=${{ marginTop: 8 }}><${PreviewPane} itemId=${itemId} /></div>
+              </details>`
+            : null}
+          <details>
+            <summary>전달할 기본 프롬프트 보기</summary>
+            <pre>${preview?.prompt ?? '불러오는 중…'}</pre>
+          </details>
+          <label className="f" htmlFor="run-extra">추가 프롬프트 (선택)</label>
+          <textarea id="run-extra" ref=${areaRef} value=${extra} placeholder="예: PR 본문은 봐주실 부분 위주로 짧게 써줘"
+            onChange=${(e) => setExtra(e.target.value)}
+></textarea>
+          <p className="warn">이 단계에서는 파일·PR·Slack·Jira·시트에 아무것도 반영하지 않음</p>
+          ${error ? html`<p className="err">${error}</p>` : null}
+          <div className="acts">
+            <button type="button" onClick=${onClose}>취소</button>
+            <button type="button" className="ok" disabled=${busy} onClick=${submit}>${busy ? '시작 중…' : html`변경안 만들기${kbd}`}</button>
+          </div>
+        </div>
+      </div>`;
+  }
+
+  const KIND_LABEL = { 'pr-body': 'PR 본문', file: '파일', message: '보낼 메시지', note: '기타 동작' };
+
+  function ReviewModal({ dispatchId, onClose, onDone }) {
+    const [d, setD] = useState(null);
+    const [error, setError] = useState('');
+    const [extra, setExtra] = useState('');
+    const [arm, setArm] = useState(false);
+    const [busy, setBusy] = useState(false);
+
+    useEffect(() => {
+      fetch(`api/dispatch/${dispatchId}/review`).then(async (r) => {
+        const body = await r.json();
+        if (r.ok) setD(body);
+        else setError(body.error ?? '불러오기 실패');
+      });
+      const onKey = (e) => e.key === 'Escape' && onClose();
+      window.addEventListener('keydown', onKey);
+      return () => window.removeEventListener('keydown', onKey);
+    }, [dispatchId]);
+
+    const call = async (url, body, msg) => {
+      setBusy(true);
+      setError('');
+      const r = await post(url, body);
+      const res = await r.json().catch(() => ({}));
+      setBusy(false);
+      if (!r.ok) return setError(res.error ?? '실패');
+      onDone(msg);
+    };
+    useCmdEnter(() => {
+      if (!d || busy) return;
+      if (arm) call(`api/dispatch/${d.id}/apply`, { extra }, `적용 시작 — ${d.text}`);
+      else setArm(true);
+    });
+    const external = d ? d.changes.filter((c) => c.kind === 'pr-body' || c.kind === 'message').length : 0;
+
+    return html`
+      <div className="modal-bg" onClick=${(e) => e.target === e.currentTarget && onClose()}>
+        <div className="modal wide" role="dialog" aria-modal="true" aria-labelledby="rv-title">
+          <h3 id="rv-title">변경 내용 검토 — ${d ? `#${d.no ?? ''} ${d.text}` : ''}</h3>
+          <div className="sub">${d ? `${d.summary} · 변경 ${d.changes.length}건 · 작성 ${kst(d.readyAt)}` : error || '불러오는 중…'}</div>
+          ${d?.plan ? html`<details open style=${{ marginBottom: 10 }}><summary>변경 계획</summary><div className="md" style=${{ marginTop: 6 }} dangerouslySetInnerHTML=${md(d.plan)}></div></details>` : null}
+          ${(d?.changes ?? []).map((c, i) => html`
+            <div className="chg" key=${i}>
+              <div className="hd">
+                <span className=${`kind k-${c.kind}`} data-hint=${KIND_HINT[c.kind]}>${KIND_LABEL[c.kind] ?? c.kind}</span>
+                <b>${c.label}</b>
+                ${c.diff !== undefined ? html`<span className="plus">+${c.added}</span><span className="minus">-${c.removed}</span>` : null}
+                ${c.isNew ? html`<span className="badge auto" data-hint=${hint('새 파일', '지금 없는 파일 — 적용하면 새로 만듦')}>새 파일</span>` : null}
+                <span className="tg">${c.kind === 'pr-body' ? `${c.repo} #${c.number}` : c.path ?? c.target ?? ''}</span>
+              </div>
+              ${c.error ? html`<p className="err">${c.error}</p>` : null}
+              ${c.diff ? html`<${DiffView} diff=${c.diff} />` : c.diff === '' ? html`<p className="s">차이 없음</p>` : null}
+              ${c.kind === 'message' && c.text ? html`<div className="md" dangerouslySetInnerHTML=${md(c.text)}></div>` : null}
+              ${c.kind === 'note' ? html`<div className="txt">${c.text}</div>` : null}
+            </div>`)}
+          ${d
+            ? html`
+              <label className="f" htmlFor="rv-extra">추가 지시 또는 피드백 (선택)</label>
+              <textarea id="rv-extra" value=${extra} placeholder="적용할 때 덧붙일 지시, 또는 「다시 만들기」에 넘길 피드백"
+                onChange=${(e) => setExtra(e.target.value)}></textarea>`
+            : null}
+          ${error && d ? html`<p className="err">${error}</p>` : null}
+          <div className="acts">
+            <button type="button" onClick=${onClose}>닫기</button>
+            ${d ? html`
+              <button type="button" disabled=${busy} onClick=${() => call(`api/dispatch/${d.id}/cancel`, {}, '변경안 폐기')}>변경안 폐기</button>
+              <button type="button" disabled=${busy || !extra.trim()} title=${extra.trim() ? '' : '피드백을 적으면 활성화'}
+                onClick=${() => call('api/dispatch', { itemId: d.itemId, extra, previous: d.id }, '피드백 반영해 변경안 다시 작성 시작')}>다시 만들기</button>
+              ${arm
+                ? html`<button type="button" className="warnbtn" disabled=${busy}
+                    onClick=${() => call(`api/dispatch/${d.id}/apply`, { extra }, `적용 시작 — ${d.text}`)}>
+                    한 번 더 누르면 적용${external ? ` (외부 반영 ${external}건 포함)` : ''}${kbd}</button>`
+                : html`<button type="button" className="ok" disabled=${busy} onClick=${() => setArm(true)}>이대로 적용…${kbd}</button>`}`
+            : null}
+          </div>
+        </div>
+      </div>`;
+  }
+
+  function ChatModal({ agentId, onClose }) {
+    const now = useNow();
+    const [data, setData] = useState(null);
+    const [text, setText] = useState('');
+    const [busy, setBusy] = useState(false);
+    const [error, setError] = useState('');
+    const listRef = useRef(null);
+    const atBottom = useRef(true);
+    const inputRef = useRef(null);
+    const focused = useRef(false);
+
+    const load = () =>
+      fetch(`api/sessions/${agentId}/messages`).then(async (r) => {
+        const body = await r.json();
+        if (r.ok) setData(body);
+        else setError(body.error ?? '불러오기 실패');
+      }).catch(() => {});
+
+    useEffect(() => {
+      load();
+      const t = setInterval(load, 2000);
+      const onKey = (e) => e.key === 'Escape' && onClose();
+      window.addEventListener('keydown', onKey);
+      return () => {
+        clearInterval(t);
+        window.removeEventListener('keydown', onKey);
+      };
+    }, [agentId]);
+
+    useLayoutEffect(() => {
+      const el = listRef.current;
+      if (el && atBottom.current) el.scrollTop = el.scrollHeight;
+    }, [data?.messages?.length]);
+
+    // 입력창은 보낼 수 있는지 확인된 뒤 활성화되므로 그때 한 번 포커스를 준다.
+    useEffect(() => {
+      if (data?.canSend && !focused.current) {
+        inputRef.current?.focus();
+        focused.current = true;
+      }
+    }, [data?.canSend]);
+
+    const send = async () => {
+      const v = text.trim();
+      if (!v || busy) return;
+      setBusy(true);
+      setError('');
+      const r = await post(`api/sessions/${agentId}/send`, { text: v });
+      const body = await r.json().catch(() => ({}));
+      setBusy(false);
+      if (!r.ok) return setError(body.error ?? '전송 실패');
+      setText('');
+      atBottom.current = true;
+      inputRef.current?.focus();
+      setTimeout(load, 800);
+    };
+
+    useCmdEnter(() => send());
+    const a = data?.agent;
+    return html`
+      <div className="modal-bg" onClick=${(e) => e.target === e.currentTarget && onClose()}>
+        <div className="modal wide" role="dialog" aria-modal="true" aria-labelledby="chat-title">
+          <h3 id="chat-title">${a ? html`<span className="at-key" style=${{ fontSize: 14 }}>@${a.key}</span> ${a.name} · ${a.label}` : '세션'}</h3>
+          <div className="sub">
+            ${a ? html`<span className=${a.busy ? 'pending' : ''} style=${a.busy ? { color: 'var(--agent)' } : null} data-hint=${sessionHint(a)}>${a.busy ? '작업 중' : '대기'}</span>
+              · ${a.step ?? '—'} ${a.stepAt ? `· ${ago(a.stepAt, now)}` : ''}` : error || '불러오는 중…'}
+          </div>
+          <div className="chat" ref=${listRef} onScroll=${(e) => {
+            const el = e.currentTarget;
+            atBottom.current = el.scrollHeight - el.scrollTop - el.clientHeight < 40;
+          }}>
+            ${(data?.messages ?? []).map((m, i) =>
+              m.role === 'tool'
+                ? html`<div key=${i} className="tool">${m.text}</div>`
+                : m.role === 'mail'
+                  ? html`<div key=${i} className="bub mail"><span className="at" style=${{ marginTop: 0, marginBottom: 3 }}>세션 메시지 · ${m.subject}</span>${linkify(m.text)}<span className="at">${kst(m.at)}</span></div>`
+                  : m.role === 'user'
+                    ? html`<div key=${i} className="bub user">${linkify(m.text)}<span className="at">${kst(m.at)}${m.via === 'dashboard' ? ' · 대시보드' : ''}</span></div>`
+                    : html`<div key=${i} className="bub assistant"><div dangerouslySetInnerHTML=${md(m.text)}></div><span className="at">${kst(m.at)}</span></div>`)}
+          </div>
+          ${data && !data.canSend ? html`<p className="err">이 세션의 Orca 채팅·터미널을 찾지 못해 보낼 수 없음(읽기만 가능)</p>` : null}
+          <div className="composer">
+            <textarea ref=${inputRef} value=${text} placeholder=${data?.canSend ? '메시지 입력 — Enter 보내기, Shift+Enter 줄바꿈' : '보낼 수 없는 세션'}
+              disabled=${!data?.canSend}
+              onChange=${(e) => setText(e.target.value)}
+              onKeyDown=${(e) => {
+                if (e.key === 'Enter' && !e.shiftKey && !e.metaKey && !e.ctrlKey && !e.nativeEvent.isComposing) {
+                  e.preventDefault();
+                  send();
+                }
+              }}></textarea>
+            <button type="button" disabled=${busy || !text.trim() || !data?.canSend} onClick=${send}>${busy ? '보내는 중' : '보내기'}</button>
+          </div>
+          ${error && data ? html`<p className="err">${error}</p>` : null}
+          ${a && a.role !== 'lead' && a.dispatchId
+            ? html`<p className="warn">
+                <span data-hint=${a.autoReclaim
+                  ? hint('자동 회수', '대시보드가 띄운 세션 — 적용 세션은 할 일 완료 뒤 1분, 변경안 세션은 작성 끝 뒤 3분 쉬면 종료')
+                  : hint('유지 중', '「이 세션 유지」로 자동 회수에서 뺀 세션')}>${a.autoReclaim ? '작업이 끝나면 자동 회수됨' : '자동 회수 안 함(유지 중)'}</span>
+                <button type="button" className="pv" style=${{ marginLeft: 8 }}
+                  onClick=${() => post(`api/sessions/${agentId}/keep`, { keep: a.autoReclaim }).then(load)}>
+                  ${a.autoReclaim ? '이 세션 유지' : '자동 회수 켜기'}</button>
+              </p>`
+            : null}
+          <p className="warn">세션 간 메시지로 전달됨(보낸 사람: 리드 세션 경유). 커밋·push·외부 전송 승인은 이 창 말고 Orca 채팅에서 직접 하거나 「변경 검토 → 적용」으로</p>
+          <div className="acts"><button type="button" onClick=${onClose}>닫기</button></div>
+        </div>
+      </div>`;
+  }
+
+  function CommandPalette({ state, onClose, onSent }) {
+    const agents = state.agents?.list ?? [];
+    const streams = Object.fromEntries(state.streams.map((x) => [x.id, x.title]));
+    const [text, setText] = useState('');
+    const [idx, setIdx] = useState(0);
+    const [busy, setBusy] = useState(false);
+    const [error, setError] = useState('');
+    const ref = useRef(null);
+    useEffect(() => ref.current?.focus(), []);
+
+    const m = text.match(/^@(\S*)(\s+([\s\S]*))?$/);
+    const picking = Boolean(m) && m[2] === undefined;
+    const target = m && m[2] !== undefined ? agents.find((a) => a.key === m[1]) : null;
+    const prompt = target ? m[3] ?? '' : '';
+    const q = picking ? m[1].toLowerCase() : '';
+    const matches = picking
+      ? agents
+          .filter((a) => [a.key, a.name, a.label, streams[a.stream] ?? ''].some((v) => v.toLowerCase().includes(q)))
+          .sort((a, b) => Number(b.key.startsWith(q)) - Number(a.key.startsWith(q)) || Number(b.busy) - Number(a.busy))
+      : [];
+    const sel = matches[Math.min(idx, matches.length - 1)];
+
+    const pick = (a) => {
+      setText(`@${a.key} `);
+      setIdx(0);
+      ref.current?.focus();
+    };
+    const send = async () => {
+      if (!target) return setError(text.startsWith('@') ? '없는 세션 키' : '먼저 @로 세션을 고름');
+      if (!target.canSend) return setError('이 세션은 보낼 수 없음(읽기만 가능)');
+      if (!prompt.trim()) return setError('프롬프트를 입력');
+      setBusy(true);
+      setError('');
+      const r = await post(`api/sessions/${target.id}/send`, { text: prompt.trim() });
+      const body = await r.json().catch(() => ({}));
+      setBusy(false);
+      if (!r.ok) return setError(body.error ?? '전송 실패');
+      onSent(target);
+    };
+    const onKey = (e) => {
+      if (e.key === 'Escape') return onClose();
+      if (e.nativeEvent.isComposing) return;
+      if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
+        e.preventDefault();
+        e.stopPropagation();
+        if (!busy) send();
+        return;
+      }
+      if (picking && matches.length) {
+        if (e.key === 'ArrowDown') { e.preventDefault(); return setIdx((i) => (i + 1) % matches.length); }
+        if (e.key === 'ArrowUp') { e.preventDefault(); return setIdx((i) => (i - 1 + matches.length) % matches.length); }
+        if (e.key === 'Enter' || e.key === 'Tab') { e.preventDefault(); return pick(sel); }
+      }
+      if (e.key === 'Enter' && !e.shiftKey) {
+        e.preventDefault();
+        if (!busy) send();
+      }
+    };
+
+    return html`
+      <div className="pal-bg" onClick=${(e) => e.target === e.currentTarget && onClose()}>
+        <div className="pal" role="dialog" aria-modal="true" aria-label="세션에 프롬프트 보내기">
+          ${target
+            ? html`<div className="to">받는 세션 <span className="at-key">@${target.key}</span> ${target.name} · ${target.label}
+                · <span style=${{ color: target.busy ? 'var(--agent)' : undefined }} data-hint=${sessionHint(target)}>${target.busy ? '작업 중' : '대기'}</span>
+                ${target.canSend ? null : html`<span className="err" data-hint=${READONLY_HINT}>읽기 전용</span>`}</div>`
+            : null}
+          <textarea ref=${ref} value=${text} rows="1" placeholder="@ 로 세션을 고른 뒤 프롬프트 입력"
+            onChange=${(e) => { setText(e.target.value); setIdx(0); setError(''); }} onKeyDown=${onKey}></textarea>
+          ${picking
+            ? html`<ul role="listbox">
+                ${matches.length
+                  ? matches.map((a, i) => html`
+                      <li key=${a.id} role="option" aria-selected=${a === sel} className=${`${a === sel ? 'on' : ''}${a.canSend ? '' : ' off'}`}
+                        onMouseEnter=${() => setIdx(i)} onClick=${() => pick(a)}>
+                        <span className="at-key">@${a.key}</span>
+                        <span><b>${a.name}</b> <span className="s">${a.label}${streams[a.stream] ? ` · ${streams[a.stream]}` : ''}</span></span>
+                        <span className="s" style=${{ color: a.busy ? 'var(--agent)' : undefined }}
+                          data-hint=${sessionHint(a, a.canSend ? null : READONLY_HINT.replace('\n', ' — '))}>${a.busy ? '작업 중' : '대기'}${a.canSend ? '' : ' · 읽기 전용'}</span>
+                        <small>${a.step ?? a.prompt ?? ''}</small>
+                      </li>`)
+                  : html`<li className="off"><span></span><span>일치하는 세션 없음</span></li>`}
+              </ul>`
+            : null}
+          ${error ? html`<div className="hint err">${error}</div>` : null}
+          <div className="hint">
+            <span><kbd>@</kbd> 세션 고르기</span><span><kbd>↑</kbd><kbd>↓</kbd> 이동</span><span><kbd>Enter</kbd> ${picking ? '선택' : '보내기'}</span><span><kbd>⌘</kbd>+<kbd>Enter</kbd> 보내기</span>
+            <span><kbd>Shift</kbd>+<kbd>Enter</kbd> 줄바꿈</span><span><kbd>Esc</kbd> 닫기</span>
+            ${busy ? html`<span>보내는 중…</span>` : null}
+          </div>
+        </div>
+      </div>`;
+  }
+
+  function JumpPalette({ state, onClose, onSession, onItem }) {
+    const agents = state.agents?.list ?? [];
+    const streams = Object.fromEntries(state.streams.map((x) => [x.id, x.title]));
+    const items = state.streams.flatMap((x) => x.items.map((it) => ({ ...it, streamTitle: x.title })));
+    const [text, setText] = useState('');
+    const [idx, setIdx] = useState(0);
+    const ref = useRef(null);
+    useEffect(() => ref.current?.focus(), []);
+
+    const mode = text.startsWith('@') ? 'session' : text.startsWith('#') ? 'item' : 'all';
+    const q = (mode === 'all' ? text : text.slice(1)).trim().toLowerCase();
+    const has = (vals) => !q || vals.some((v) => String(v ?? '').toLowerCase().includes(q));
+    const sessionRows = mode === 'item' ? [] : agents
+      .filter((a) => has([a.key, a.name, a.label, streams[a.stream]]))
+      .sort((a, b) => Number(b.key === q) - Number(a.key === q) || Number(b.key.startsWith(q)) - Number(a.key.startsWith(q)) || Number(b.busy) - Number(a.busy))
+      .map((a) => ({ kind: 'session', id: a.id, a }));
+    const itemRows = mode === 'session' ? [] : items
+      .filter((it) => has([it.no, it.text, it.streamTitle]))
+      .sort((a, b) => Number(String(b.no) === q) - Number(String(a.no) === q) || Number(String(b.no).startsWith(q)) - Number(String(a.no).startsWith(q)) || Number(a.done) - Number(b.done) || a.no - b.no)
+      .map((it) => ({ kind: 'item', id: it.id, it }));
+    const rows = [...sessionRows, ...itemRows].slice(0, 40);
+    const sel = rows[Math.min(idx, rows.length - 1)];
+
+    const open = (r) => {
+      if (!r) return;
+      onClose();
+      if (r.kind === 'session') onSession(r.id);
+      else onItem(r.id);
+    };
+    const onKey = (e) => {
+      if (e.key === 'Escape') return onClose();
+      if (e.nativeEvent.isComposing) return;
+      if (e.key === 'ArrowDown') { e.preventDefault(); return setIdx((i) => (i + 1) % Math.max(rows.length, 1)); }
+      if (e.key === 'ArrowUp') { e.preventDefault(); return setIdx((i) => (i - 1 + rows.length) % Math.max(rows.length, 1)); }
+      if (e.key === 'Enter') { e.preventDefault(); e.stopPropagation(); open(sel); }
+    };
+
+    return html`
+      <div className="pal-bg" onClick=${(e) => e.target === e.currentTarget && onClose()}>
+        <div className="pal" role="dialog" aria-modal="true" aria-label="화면 이동">
+          <textarea ref=${ref} value=${text} rows="1" placeholder="@ 세션 대화 · # 할 일 — 이름이나 번호로 찾기"
+            onChange=${(e) => { setText(e.target.value.replace(/\n/g, '')); setIdx(0); }} onKeyDown=${onKey}></textarea>
+          <ul role="listbox">
+            ${rows.length
+              ? rows.map((r, i) => r.kind === 'session'
+                  ? html`<li key=${r.id} role="option" aria-selected=${r === sel} className=${r === sel ? 'on' : ''} onMouseEnter=${() => setIdx(i)} onClick=${() => open(r)}>
+                      <span className="at-key">@${r.a.key}</span>
+                      <span><b>${r.a.name}</b> <span className="s">${r.a.label}${streams[r.a.stream] ? ` · ${streams[r.a.stream]}` : ''}</span></span>
+                      <span className="s" style=${{ color: r.a.busy ? 'var(--agent)' : undefined }} data-hint=${sessionHint(r.a)}>${r.a.busy ? '작업 중' : '대기'} · 대화</span>
+                      <small>${r.a.step ?? r.a.prompt ?? ''}</small>
+                    </li>`
+                  : html`<li key=${r.id} role="option" aria-selected=${r === sel} className=${`${r === sel ? 'on' : ''}${r.it.done ? ' off' : ''}`} onMouseEnter=${() => setIdx(i)} onClick=${() => open(r)}>
+                      <span className="key" style=${{ color: 'var(--fg)' }}>#${r.it.no}</span>
+                      <span><b>${r.it.text}</b> <span className="s">${r.it.streamTitle}</span></span>
+                      <span className="s" data-hint=${doneHint(r.it)}>${r.it.done ? '완료' : '남음'} · 할 일</span>
+                    </li>`)
+              : html`<li className="off"><span></span><span>일치하는 항목 없음</span></li>`}
+          </ul>
+          <div className="hint">
+            <span><kbd>@</kbd> 세션 대화</span><span><kbd>#</kbd> 할 일</span><span><kbd>↑</kbd><kbd>↓</kbd> 이동</span>
+            <span><kbd>Enter</kbd> 열기</span><span><kbd>Esc</kbd> 닫기</span>
+          </div>
+        </div>
+      </div>`;
+  }
+
+  // 링크·상태 태그 호버 툴팁. 통합 대시보드 index.html 에 같은 코드가 있다.
+  // 외부 링크는 /api/link 설명(같은 URL 1분 캐시), data-hint 가 있는 요소는 그 문구를 띄운다.
+  const linkCache = new Map();
+  const linkInfo = (url) => {
+    const hit = linkCache.get(url);
+    if (hit && Date.now() - hit.at < 60_000) return hit.p;
+    const p = fetch(`api/link?url=${encodeURIComponent(url)}`).then(async (r) => {
+      const body = await r.json();
+      if (!r.ok) throw new Error(body.error ?? '설명을 가져오지 못함');
+      return body;
+    });
+    p.catch(() => {});
+    linkCache.set(url, { at: Date.now(), p });
+    return p;
+  };
+
+  function LinkTip() {
+    const [tip, setTip] = useState(null);
+    const ref = useRef(null);
+    useEffect(() => {
+      let cur = null;
+      let timer = null;
+      const hide = () => {
+        clearTimeout(timer);
+        cur = null;
+        setTip(null);
+      };
+      const onOver = (e) => {
+        const el = e.target.closest?.('a[href^="http"], [data-hint]');
+        if (el === cur) return;
+        hide();
+        const link = el?.matches('a[href^="http"]');
+        if (!el || (!link && !el.dataset.hint)) return;
+        cur = el;
+        timer = setTimeout(() => {
+          const next = { el, hint: el.dataset.hint || null };
+          if (link) Object.assign(next, { url: el.href, text: (el.dataset.label || el.innerText.split('\n')[0]).trim().slice(0, 120) });
+          setTip(next);
+          if (!link) return;
+          const set = (patch) => cur === el && setTip((t) => (t?.el === el ? { ...t, ...patch } : t));
+          linkInfo(el.href).then((d) => set({ d }), (err) => set({ error: err.message }));
+        }, 300);
+      };
+      const onOut = (e) => {
+        if (cur && !cur.contains(e.relatedTarget)) hide();
+      };
+      document.addEventListener('mouseover', onOver);
+      document.addEventListener('mouseout', onOut);
+      document.addEventListener('mousedown', hide);
+      window.addEventListener('scroll', hide, true);
+      return () => {
+        clearTimeout(timer);
+        document.removeEventListener('mouseover', onOver);
+        document.removeEventListener('mouseout', onOut);
+        document.removeEventListener('mousedown', hide);
+        window.removeEventListener('scroll', hide, true);
+      };
+    }, []);
+    useLayoutEffect(() => {
+      const box = ref.current;
+      if (!tip || !box) return;
+      const r = tip.el.getBoundingClientRect();
+      const m = 8;
+      const left = Math.max(m, Math.min(r.left, window.innerWidth - box.offsetWidth - m));
+      const below = r.bottom + 6;
+      box.style.left = `${left}px`;
+      box.style.top = `${below + box.offsetHeight + m > window.innerHeight ? Math.max(m, r.top - 6 - box.offsetHeight) : below}px`;
+      box.style.visibility = 'visible';
+    }, [tip]);
+    if (!tip) return null;
+    const [head, ...rest] = (tip.hint ?? '').split('\n');
+    const d = tip.d;
+    return html`
+      <div className="ltip" ref=${ref} role="tooltip">
+        ${tip.url
+          ? html`
+            <div className="ltip-k">${d?.label ?? '링크'}${d?.state ? html`<span className=${`ltip-b b-${d.state}`}>${d.stateLabel}</span>` : null}</div>
+            <div className="ltip-t">${d?.title || tip.text || tip.url}</div>
+            ${tip.error
+              ? html`<div className="ltip-l ltip-err">${tip.error}</div>`
+              : d ? d.lines.map((l, i) => html`<div key=${i} className="ltip-l">${l}</div>`) : html`<div className="ltip-l">불러오는 중…</div>`}
+            ${tip.hint ? html`<div className="ltip-h">${head}</div>` : null}`
+          : html`<div className="ltip-t">${head}</div>`}
+        ${rest.map((l, i) => html`<div key=${`h${i}`} className="ltip-l">${l}</div>`)}
+      </div>`;
+  }
+
+  const doneMap = (state) => {
+    const m = {};
+    for (const s of state.streams) m[`t-${s.id}`] = s.items.map((it) => (it.done ? 1 : 0)).join('');
+    for (const [id, o] of Object.entries(state.outputs)) m[`o-${id}`] = o.done ? '1' : '0';
+    return m;
+  };
+
+  const post = (url, body) =>
+    fetch(url, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body ?? {}) });
+
+  function App() {
+    const [state, setState] = useState(null);
+    const [live, setLive] = useState(false);
+    const [selected, setSelected] = useState(null);
+    const [flashIds, setFlashIds] = useState(() => new Set());
+    const [notice, setNotice] = useState('');
+    const [runItem, setRunItem] = useState(null);
+    const [previewItem, setPreviewItem] = useState(null);
+    const [diffId, setDiffId] = useState(null);
+    const [reviewId, setReviewId] = useState(null);
+    const [chatId, setChatId] = useState(() => new URLSearchParams(location.search).get('chat'));
+    const [itemId, setItemId] = useState(null);
+    const [palette, setPalette] = useState(false);
+    const [jump, setJump] = useState(false);
+
+    useEffect(() => {
+      const onKey = (e) => {
+        if ((e.metaKey || e.ctrlKey) && !e.shiftKey && !e.altKey && e.key.toLowerCase() === 'o') {
+          e.preventDefault();
+          setPalette(true);
+        }
+        if ((e.metaKey || e.ctrlKey) && !e.altKey && (e.key === '/' || e.code === 'Slash')) {
+          e.preventDefault();
+          setJump(true);
+        }
+        // 통합 대시보드 안(iframe)이면 탭 이동 키(⌥/⌘/Ctrl+숫자, ⌥↑↓)를 부모 창으로 넘긴다.
+        const hubKey = /^Digit\d$/.test(e.code) || (e.altKey && (e.code === 'ArrowUp' || e.code === 'ArrowDown'));
+        if (window.parent !== window && (e.altKey || e.metaKey || e.ctrlKey) && hubKey) {
+          e.preventDefault();
+          window.parent.postMessage({ type: 'hub-key', code: e.code, alt: e.altKey, meta: e.metaKey, ctrl: e.ctrlKey }, '*');
+        }
+      };
+      window.addEventListener('keydown', onKey, true);
+      return () => window.removeEventListener('keydown', onKey, true);
+    }, []);
+    const prev = useRef(null);
+
+    useEffect(() => {
+      const es = new EventSource('api/events');
+      es.onopen = () => setLive(true);
+      es.onerror = () => setLive(false);
+      es.addEventListener('state', (e) => {
+        const next = JSON.parse(e.data);
+        if (next.jiraBase) JIRA = next.jiraBase;
+        document.title = `${next.key ?? ''} 대시보드`.trim();
+        const now = doneMap(next);
+        if (prev.current) {
+          const changed = new Set(Object.keys(now).filter((k) => prev.current[k] !== undefined && prev.current[k] !== now[k]));
+          if (changed.size) {
+            setFlashIds(changed);
+            setTimeout(() => setFlashIds(new Set()), 3000);
+          }
+        }
+        prev.current = now;
+        setState(next);
+        setLive(true);
+      });
+      return () => es.close();
+    }, []);
+
+    const say = (msg) => {
+      setNotice(msg);
+      setTimeout(() => setNotice(''), 2500);
+    };
+    const toggle = async (id, done) => {
+      const r = await post(`api/items/${id}`, { done });
+      if (!r.ok) return say((await r.json()).error);
+      const it = state?.streams.flatMap((x) => x.items).find((x) => x.id === id);
+      say(`#${it?.no ?? ''} ${done ? '완료로 표시' : '완료 취소'}`);
+    };
+    const refresh = async () => {
+      await post('api/refresh');
+      say('GitHub·진행 기록 다시 확인 중');
+    };
+
+    if (!state) return html`<div className="wrap s">서버에 연결 중…</div>`;
+
+    const items = state.streams.flatMap((s) => s.items);
+    const done = items.filter((it) => it.done).length;
+    const outs = Object.values(state.outputs);
+    const made = outs.filter((o) => o.done).length;
+
+    return html`
+      <div className="wrap">
+        <div className="top">
+          <h1>${state.title}</h1>
+          <span className="s" data-hint=${hint('할 일 완료', `${done} / ${items.length} — 자동 판정 ${items.filter((it) => it.isAuto).length}건 포함, 남은 ${items.length - done}건`, '완료 처리: 할 일 팝업·POST /api/items, 자동 판정은 GitHub 1분 확인')}>
+            작업 <b>${done} / ${items.length}</b> 완료</span>
+          <span className="s" data-hint=${hint('나옴', `만들어진 결과물 ${made} / ${outs.length}`, '자동 판정(PR·배포 태그) → 연결된 할 일 모두 완료 → 상태 파일 표시 순으로 판정')}>
+            결과물 <b>${made}</b> 나옴 · <span className="pending" data-hint=${hint('대기', '아직 안 나온 결과물(주황 카드)', outs.filter((o) => !o.done).map((o) => o.name).join(', '))}>대기 ${outs.length - made}</span></span>
+          <span className="s" data-hint=${hint('세션', 'agents.watch 폴더에서 살아 있는 Claude 세션(2초마다 확인)', ...(state.agents?.list ?? []).map((a) => `@${a.key} ${a.name} — ${a.busy ? `작업 중${a.step ? ` · ${a.step}` : ''}` : '대기'}`))}>
+            에이전트 <b style=${{ color: 'var(--agent)' }}>${(state.agents?.list ?? []).filter((a) => a.busy).length}</b> 작업 중 · ${(state.agents?.list ?? []).length}개 감시</span>
+          <div className="right">
+            ${(() => {
+              const waiting = (state.dispatches ?? []).filter((d) => d.status === 'review' && dispatchState(state, d.itemId) === 'review');
+              return waiting.length
+                ? html`<button type="button" className="rv" style=${{ fontSize: 12, padding: '4px 12px' }} onClick=${() => setReviewId(waiting[0].id)}
+                    data-hint=${hint('검토 대기', '변경안 작성이 끝나 검토를 기다리는 할 일', ...waiting.map((d) => `${d.text} · ${kst(d.readyAt)}`), '누르면 첫 번째 변경 검토 열기')}>검토 대기 ${waiting.length}</button>`
+                : null;
+            })()}
+            ${(() => {
+              const nx = nextItem(state);
+              return nx
+                ? html`<button type="button" className="next" title=${`${nx.stream.title} · #${nx.item.no} ${nx.item.text}`} onClick=${() => setRunItem(nx.item.id)}>다음 진행 ▶ #${nx.item.no} ${nx.item.text}</button>`
+                : null;
+            })()}
+            <span className=${`live${live ? ' on' : ''}`} data-hint=${live
+              ? hint('실시간 연결', '서버와 SSE 연결됨 — 상태 파일 1초·세션 2초·GitHub 1분 주기로 반영')
+              : hint('연결 끊김', '서버(SSE) 연결이 끊겨 다시 연결하는 중 — 서버가 꺼졌으면 ./start.sh')}><i></i>${live ? '실시간 연결' : '연결 끊김 · 재연결 중'}</span>
+            <button type="button" onClick=${() => setJump(true)} title="세션 대화·할 일로 이동">⌘/ 이동</button>
+            <button type="button" onClick=${() => setPalette(true)} title="세션에 프롬프트 보내기">⌘O @세션</button>
+            <button type="button" onClick=${refresh}>지금 확인</button>
+          </div>
+        </div>
+        <div className="grid">
+          <div>
+            <${ReactFlowProvider}>
+              <${Flow} state=${state} selected=${selected} onSelect=${setSelected} flashIds=${flashIds} onChat=${setChatId} />
+            <//>
+            <div className="foot">
+              상태 파일 ${kst(state.statusSyncedAt)} · GitHub ${kst(state.github.syncedAt)} · 진행 기록 ${kst(state.vault.syncedAt)}
+            </div>
+          </div>
+          <div className="side">
+            <${ItemsPanel} state=${state} selected=${selected} onSelect=${setSelected} onOpen=${setItemId} onRun=${setRunItem} onPreview=${setPreviewItem} onReview=${setReviewId} />
+            <div className="stack">
+              ${state.cycles?.length ? html`<${CyclePanel} state=${state} />` : null}
+              <${DocsPanel} docs=${state.docs} onOpen=${setDiffId} />
+              <${GitHubPanel} github=${state.github} />
+            </div>
+            <${LogPanel} vault=${state.vault} />
+          </div>
+        </div>
+        ${diffId ? html`<${DiffModal} id=${diffId} onClose=${() => setDiffId(null)} />` : null}
+        ${chatId ? html`<${ChatModal} agentId=${chatId} onClose=${() => setChatId(null)} />` : null}
+        ${itemId
+          ? html`<${ItemModal} state=${state} itemId=${itemId} onClose=${() => setItemId(null)} onToggle=${toggle}
+              onRun=${setRunItem} onPreview=${setPreviewItem} onReview=${setReviewId} />`
+          : null}
+        ${jump
+          ? html`<${JumpPalette} state=${state} onClose=${() => setJump(false)}
+              onSession=${(id) => setChatId(id)} onItem=${(id) => setItemId(id)} />`
+          : null}
+        ${palette
+          ? html`<${CommandPalette} state=${state} onClose=${() => setPalette(false)}
+              onSent=${(a) => { setPalette(false); say(`@${a.key}에 보냄`); }} />`
+          : null}
+        ${reviewId
+          ? html`<${ReviewModal} dispatchId=${reviewId} onClose=${() => setReviewId(null)}
+              onDone=${(msg) => { setReviewId(null); say(msg); }} />`
+          : null}
+        ${previewItem && !runItem
+          ? html`<${PreviewModal} state=${state} itemId=${previewItem} onClose=${() => setPreviewItem(null)}
+              onRun=${(id) => { setPreviewItem(null); setRunItem(id); }} />`
+          : null}
+        ${runItem
+          ? html`<${RunModal} state=${state} itemId=${runItem} onClose=${() => setRunItem(null)}
+              onDone=${(msg) => { setRunItem(null); say(msg); }} />`
+          : null}
+        ${notice ? html`<div className="notice">${notice}</div>` : null}
+        <${LinkTip} />
+      </div>`;
+  }
+
+  createRoot(document.getElementById('root')).render(html`<${App} />`);
+</script>
+</body>
+</html>

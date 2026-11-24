@@ -1,0 +1,10 @@
+{
+  "name": "ticket-dashboard",
+  "description": "티켓 하나의 진행 상황(리드 세션 → 작업 세션 → 결과물)을 실시간으로 보고 조작하는 로컬 대시보드. 여러 티켓을 묶는 통합 대시보드 포함.",
+  "version": "0.1.0",
+  "author": {
+    "name": "MOON-HJ",
+    "url": "https://github.com/MOON-HJ"
+  },
+  "keywords": ["dashboard", "ticket", "react-flow", "claude-session"]
+}

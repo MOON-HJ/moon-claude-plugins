@@ -1,0 +1,78 @@
+{
+  "key": "PROJ-383",
+  "title": "PROJ-383 알림 기능",
+  "port": 4383,
+  "repo": "acme/my-app",
+  "jiraBase": "https://your-domain.atlassian.net/browse/",
+  "flow": "pipeline",
+  "stages": [
+    { "id": "initial", "title": "Initial", "lead": true },
+    { "id": "plan", "title": "Plan" },
+    { "id": "build", "title": "Build" },
+    { "id": "verify", "title": "Verify", "loopTo": "plan", "loopLabel": "검증 실패 → 다시 계획" },
+    { "id": "deploy", "title": "Deploy" }
+  ],
+  "streams": [
+    {
+      "id": "app",
+      "title": "앱",
+      "ticket": "APP-1021",
+      "worktree": "/path/to/workspaces/my-app/APP-1021-pr",
+      "keywords": ["APP-1021", "#584", "PR 본문"],
+      "outs": ["pr584", "release"],
+      "items": [
+        { "id": "app-impl", "no": 1, "text": "알림 수신 화면 구현", "done": true, "doneAt": "2026-01-12T05:10:00.000Z", "stage": "build", "out": "pr584" },
+        { "id": "app-body", "no": 2, "text": "PR 본문 수정", "done": false, "who": "approve", "stage": "build", "out": "pr584",
+          "refs": [{ "type": "pr", "repo": "acme/my-app", "number": 584 }] },
+        { "id": "app-release", "no": 3, "text": "v1.15.0 배포", "done": false, "who": "plan", "stage": "deploy", "out": "release",
+          "auto": { "release": "v1.15.0" } }
+      ]
+    },
+    {
+      "id": "server",
+      "title": "서버",
+      "ticket": "API-1105",
+      "worktree": "/path/to/workspaces/my-api/API-1105",
+      "keywords": ["API-1105", "발송 API"],
+      "outs": ["pr4043"],
+      "items": [
+        { "id": "server-api", "no": 4, "text": "알림 발송 API 추가", "done": false, "who": "me", "stage": "build", "out": "pr4043",
+          "auto": { "pr": 4043, "repo": "acme/my-api", "merged": true } },
+        { "id": "server-policy", "no": 5, "text": "발송 정책 확인", "done": false, "who": "ext", "stage": "plan",
+          "refs": [{ "type": "link", "title": "발송 정책 문서", "url": "https://example.com/policy" }] }
+      ]
+    },
+    {
+      "id": "docs",
+      "title": "문서·검증",
+      "worktree": "/path/to/notes/PROJ-383_manager",
+      "keywords": ["진행 현황", "E2E"],
+      "outs": ["e2e", "vault"],
+      "items": [
+        { "id": "docs-e2e", "no": 6, "text": "E2E 리포트 작성", "done": true, "doneAt": "2026-01-13T02:00:00.000Z", "stage": "verify", "out": "e2e" }
+      ]
+    }
+  ],
+  "cycles": [
+    { "n": 1, "item": "app-impl", "at": "2026-01-12T05:10:00.000Z", "plan": "수신 화면 설계", "build": "화면·상태 구현", "verify": "E2E 3건 통과", "result": "pass" }
+  ],
+  "outputs": {
+    "pr584": { "name": "PR #584", "desc": "리뷰 중", "url": "https://github.com/acme/my-app/pull/584", "auto": { "pr": 584 } },
+    "pr4043": { "name": "PR #4043", "url": "https://github.com/acme/my-api/pull/4043", "auto": { "pr": 4043, "repo": "acme/my-api", "merged": true } },
+    "release": { "name": "v1.15.0", "auto": { "release": "v1.15.0" } },
+    "e2e": { "name": "E2E 리포트 3건", "done": true, "links": [["앱 TC", "https://example.com/report"]] },
+    "vault": { "name": "진행 현황 문서", "done": true, "auto": { "vaultLog": true } }
+  },
+  "agents": {
+    "leadDoc": "/path/to/notes/PROJ-383_manager/progress.md",
+    "watch": [
+      { "cwd": "/path/to/notes/PROJ-383_manager", "label": "리드 세션", "role": "lead", "name": "PROJ-383" },
+      { "cwd": "/path/to/workspaces/my-app/APP-1021-pr", "label": "앱 워커", "stream": "app" },
+      { "cwd": "/path/to/workspaces/my-api/API-1105", "label": "서버 워커", "stream": "server" }
+    ]
+  },
+  "docs": {
+    "root": "/path/to/notes/PROJ-383_manager",
+    "progressDoc": "/path/to/notes/PROJ-383_manager/progress.md"
+  }
+}

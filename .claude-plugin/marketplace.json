@@ -1,0 +1,19 @@
+{
+  "name": "moon-plugins",
+  "owner": {
+    "name": "MOON-HJ",
+    "url": "https://github.com/MOON-HJ"
+  },
+  "metadata": {
+    "description": "티켓 진행 대시보드 등 개인 작업용 Claude Code 플러그인 모음",
+    "version": "0.1.0"
+  },
+  "plugins": [
+    {
+      "name": "ticket-dashboard",
+      "source": "./plugins/ticket-dashboard",
+      "description": "티켓 하나의 진행 상황(리드 세션 → 작업 세션 → 결과물)을 실시간으로 보고 조작하는 로컬 대시보드. 여러 티켓을 묶는 통합 대시보드 포함.",
+      "category": "productivity"
+    }
+  ]
+}
