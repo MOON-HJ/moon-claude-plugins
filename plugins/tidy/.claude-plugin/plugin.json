@@ -1,0 +1,17 @@
+{
+  "name": "tidy",
+  "description": "로컬 정리 스킬. repo 모드는 브랜치·stash를 분류해 백업 태그 후 삭제하고, files 모드는 다운로드·데스크톱 파일을 분류해 아카이브·삭제를 제안한다(macOS). 삭제는 전부 승인 후 실행.",
+  "version": "0.1.0",
+  "author": {
+    "name": "MOON-HJ",
+    "url": "https://github.com/MOON-HJ"
+  },
+  "keywords": [
+    "git",
+    "branch",
+    "stash",
+    "cleanup",
+    "downloads",
+    "macos"
+  ]
+}
